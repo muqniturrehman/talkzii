@@ -2338,6 +2338,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_contacts: {
+        Args: {
+          p_workspace_id: string
+          p_rows: Json
+          p_update_existing?: boolean
+          p_label_ids?: string[]
+          p_created_by?: string
+          p_capacity?: number
+        }
+        Returns: Json
+      }
       increment_usage: {
         Args: {
           p_workspace_id: string

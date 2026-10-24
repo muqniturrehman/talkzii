@@ -554,6 +554,58 @@ describe('realtime, storage and AI search', () => {
   });
 });
 
+describe('contact import', () => {
+  it('imports set-based: dedupes, caps by capacity, merges existing and links labels', async () => {
+    const owner = await createAuthUser(db, `${unique('imp')}@test.dev`);
+    const ws = await createWorkspaceAs(owner, 'Import Co');
+    await db.query(`insert into public.contacts (workspace_id, wa_id, name, custom_fields) values ($1, '923001111111', 'Old Name', '{"city":"Lahore"}')`, [ws]);
+    const vip = await db.query<{ id: string }>(`insert into public.labels (workspace_id, name) values ($1, 'VIP') returning id`, [ws]);
+
+    const rows = [
+      { row_number: 2, wa_id: '923001111111', name: 'New Name', email: null, custom_fields: { tier: 'gold' }, labels: ['Wholesale'] },
+      { row_number: 3, wa_id: '923002222222', name: 'Bilal', email: 'BILAL@Example.com', custom_fields: {}, labels: ['Wholesale'] },
+      { row_number: 4, wa_id: '923002222222', name: 'Bilal duplicate', email: null, custom_fields: {}, labels: [] },
+      { row_number: 5, wa_id: '923003333333', name: 'Sana', email: null, custom_fields: {}, labels: [] },
+      { row_number: 6, wa_id: 'not-a-number', name: 'Bad', email: null, custom_fields: {}, labels: [] },
+    ];
+    const result = await asServiceRole(db, (tx) =>
+      tx.query<{ r: Record<string, number> }>('select public.import_contacts($1, $2::jsonb, true, $3::uuid[], $4, 1) as r', [
+        ws,
+        JSON.stringify(rows),
+        [vip.rows[0]!.id],
+        owner.id,
+      ]),
+    );
+    expect(result.rows[0]!.r).toEqual({ received: 3, created: 1, updated: 1, existing: 1, skipped_limit: 1 });
+
+    const contacts = await db.query<{ wa_id: string; name: string; email: string | null; custom_fields: Record<string, string>; source: string }>(
+      'select wa_id, name, email, custom_fields, source from public.contacts where workspace_id = $1 order by wa_id',
+      [ws],
+    );
+    expect(contacts.rows).toEqual([
+      { wa_id: '923001111111', name: 'New Name', email: null, custom_fields: { city: 'Lahore', tier: 'gold' }, source: 'manual' },
+      { wa_id: '923002222222', name: 'Bilal', email: 'bilal@example.com', custom_fields: {}, source: 'import' },
+    ]);
+
+    const links = await db.query<{ wa_id: string; label: string }>(
+      `select c.wa_id, l.name as label from public.contact_labels cl
+       join public.contacts c on c.id = cl.contact_id join public.labels l on l.id = cl.label_id
+       where cl.workspace_id = $1 order by c.wa_id, l.name`,
+      [ws],
+    );
+    expect(links.rows).toEqual([
+      { wa_id: '923001111111', label: 'VIP' },
+      { wa_id: '923001111111', label: 'Wholesale' },
+      { wa_id: '923002222222', label: 'VIP' },
+      { wa_id: '923002222222', label: 'Wholesale' },
+    ]);
+
+    await expect(
+      asUser(db, owner, (tx) => tx.query('select public.import_contacts($1, $2::jsonb)', [ws, '[]'])),
+    ).rejects.toThrow(/permission denied/);
+  });
+});
+
 describe('seed data', () => {
   it('fits the schema and powers the analytics functions', async () => {
     const owner = await createAuthUser(db, `${unique('seed-owner')}@test.dev`);

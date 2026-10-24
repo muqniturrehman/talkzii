@@ -23,6 +23,7 @@
     "@talkzi/ui": "workspace:*",
     "@talkzi/whatsapp": "workspace:*",
     "@tanstack/react-query": "^5.104.5",
+    "@tanstack/react-virtual": "^3.14.22",
     "@upstash/ratelimit": "^2.2.0",
     "@upstash/redis": "^1.39.0",
     "date-fns": "^4.4.0",
@@ -30,6 +31,7 @@
     "lucide-react": "catalog:",
     "next": "^16.4.3",
     "openai": "^7.43.0",
+    "papaparse": "^5.7.0",
     "pino": "^10.4.0",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -42,6 +44,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "catalog:",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "eslint": "^9.39.1",

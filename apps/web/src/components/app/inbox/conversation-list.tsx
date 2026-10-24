@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@talkzi/ui/skeleton';
 import { Switch } from '@talkzi/ui/switch';
 import { Label } from '@talkzi/ui/label';
+import { useDebounced } from '@/hooks/use-debounced';
 import { isSessionOpen } from '@/lib/inbox/session';
 import type { ConversationListItem } from '@/lib/inbox/types';
 import { useConversations, useInboxCounts, useLabels, useMembers, type InboxFilters } from './use-inbox';
@@ -35,15 +36,6 @@ function shortTime(iso: string | null): string {
   const days = (now.getTime() - date.getTime()) / 86_400_000;
   if (days < 7) return date.toLocaleDateString([], { weekday: 'short' });
   return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
-}
-
-function useDebounced<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = React.useState(value);
-  React.useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
 }
 
 function ConversationRow({

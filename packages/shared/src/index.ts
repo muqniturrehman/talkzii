@@ -9,3 +9,5 @@ export * from './schemas/auth';
 export * from './schemas/workspace';
 export * from './schemas/meta';
 export * from './schemas/inbox';
+export * from './schemas/contacts';
+export * from './phone';
