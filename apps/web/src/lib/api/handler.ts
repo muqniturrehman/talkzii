@@ -200,11 +200,22 @@ export function createHandler<
 }
 
 /**
- * Throws a typed API error for a failed Supabase query, else returns its data.
- * Successful `.select()` / `.single()` results are never null; don't use this
- * with `.maybeSingle()` (handle the null case explicitly there).
+ * Throws a typed API error for a failed Supabase query, else returns the
+ * success variant's data: `.single()` → row, `.maybeSingle()` → row | null,
+ * `.select()` → rows. (Generic over the whole response so inline
+ * `unwrap(await q.single())` keeps the row type.)
  */
-export function unwrap<T>(result: { data: T | null; error: { code?: string; message: string } | null }): T {
+export function unwrap<R extends { data: unknown; error: { code?: string; message: string } | null }>(
+  result: R,
+): Extract<R, { error: null }>['data'] {
   if (result.error) throw fromPostgrestError(result.error);
-  return result.data as T;
+  return result.data as Extract<R, { error: null }>['data'];
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Validates a dynamic route segment as a UUID (404 otherwise, so bad ids never reach Postgres). */
+export function requireUuid(value: string | undefined, what = 'Resource'): string {
+  if (!value || !UUID_RE.test(value)) throw ApiError.notFound(`${what} not found.`);
+  return value.toLowerCase();
 }
