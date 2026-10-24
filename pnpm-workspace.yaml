@@ -1,0 +1,23 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Shared dependency versions — reference with "catalog:" in package.json files.
+catalog:
+  '@supabase/supabase-js': ^2.118.0
+  '@types/node': ^22.18.0
+  '@types/react': ^19.2.0
+  '@types/react-dom': ^19.2.0
+  lucide-react: ^1.61.0
+  react: ^19.2.0
+  react-dom: ^19.2.0
+  typescript: ^5.9.3
+  vitest: ^3.2.4
+  zod: ^4.1.12
+
+# pnpm 10 blocks dependency lifecycle scripts by default; allow the ones we need.
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - esbuild
+  - sharp
+  - unrs-resolver

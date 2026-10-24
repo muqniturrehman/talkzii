@@ -1,0 +1,24 @@
+{
+  "name": "@talkzi/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Supabase migrations, generated database types and seed data for Talkzi.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./types.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf node_modules/.cache"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

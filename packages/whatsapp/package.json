@@ -1,0 +1,20 @@
+{
+  "name": "@talkzi/whatsapp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed WhatsApp Business Cloud API client (Graph API v21.0) with retries, error normalisation and webhook helpers.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf node_modules/.cache"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
