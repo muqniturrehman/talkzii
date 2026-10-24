@@ -2301,6 +2301,17 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      current_workspace_context: {
+        Args: never
+        Returns: {
+          workspace_id: string
+          role: Database["public"]["Enums"]["workspace_role"]
+          plan: Database["public"]["Enums"]["plan_tier"]
+          name: string
+          slug: string
+          parent_workspace_id: string
+        }[]
+      }
       current_workspace_id: {
         Args: never
         Returns: string

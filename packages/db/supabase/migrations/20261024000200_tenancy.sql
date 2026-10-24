@@ -86,13 +86,16 @@ stable
 security definer
 set search_path = ''
 as $$
+  -- Prefer the JWT claim; fall back to the profile's active workspace when the
+  -- claim is missing or points at a workspace the user no longer belongs to.
   select wm.workspace_id
   from public.workspace_members wm
   where wm.user_id = auth.uid()
-    and wm.workspace_id = coalesce(
+    and wm.workspace_id in (
       nullif(auth.jwt() ->> 'workspace_id', '')::uuid,
       (select p.active_workspace_id from public.profiles p where p.id = auth.uid())
     )
+  order by (wm.workspace_id = nullif(auth.jwt() ->> 'workspace_id', '')::uuid) desc nulls last
   limit 1;
 $$;
 
@@ -118,6 +121,28 @@ security definer
 set search_path = ''
 as $$
   select coalesce(public.role_rank(public.current_workspace_role()) >= public.role_rank(required), false);
+$$;
+
+-- Everything the API layer needs about the caller's active workspace, in one
+-- round-trip and consistent with what RLS sees.
+create or replace function public.current_workspace_context()
+returns table (
+  workspace_id uuid,
+  role public.workspace_role,
+  plan public.plan_tier,
+  name text,
+  slug text,
+  parent_workspace_id uuid
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select w.id, wm.role, w.plan, w.name, w.slug, w.parent_workspace_id
+  from public.workspaces w
+  join public.workspace_members wm on wm.workspace_id = w.id and wm.user_id = auth.uid()
+  where w.id = public.current_workspace_id();
 $$;
 
 create or replace function public.is_workspace_member(ws uuid)

@@ -181,7 +181,15 @@ describe('multi-tenancy', () => {
     const other = await createAuthUser(db, `${unique('other')}@test.dev`);
     await addMember(ws1, other.id, 'owner');
     await db.query('delete from public.workspace_members where workspace_id = $1 and user_id = $2', [ws1, user.id]);
-    expect(await asUser(db, user, (tx) => count(tx, 'select 1 from public.contacts'), { workspace_id: ws1 })).toBe(0);
+    // A stale claim for ws1 can no longer read ws1; RLS falls back to the active workspace (ws2).
+    expect(
+      await asUser(db, user, (tx) => count(tx, 'select 1 from public.contacts where workspace_id = $1', [ws1]), { workspace_id: ws1 }),
+    ).toBe(0);
+    expect(await asUser(db, user, (tx) => count(tx, 'select 1 from public.contacts'), { workspace_id: ws1 })).toBe(2);
+    const ctx = await asUser(db, user, async (tx) =>
+      (await tx.query<{ workspace_id: string; role: string }>('select * from public.current_workspace_context()')).rows,
+    { workspace_id: ws1 });
+    expect(ctx).toEqual([expect.objectContaining({ workspace_id: ws2, role: 'owner' })]);
   });
 
   it('custom access token hook injects workspace claims', async () => {
