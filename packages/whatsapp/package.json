@@ -9,7 +9,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "clean": "rimraf node_modules/.cache"
   },
   "devDependencies": {
