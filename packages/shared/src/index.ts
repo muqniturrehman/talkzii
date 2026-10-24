@@ -10,4 +10,5 @@ export * from './schemas/workspace';
 export * from './schemas/meta';
 export * from './schemas/inbox';
 export * from './schemas/contacts';
+export * from './schemas/templates';
 export * from './phone';

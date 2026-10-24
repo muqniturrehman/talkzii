@@ -270,6 +270,15 @@ describe('media, templates and phone numbers', () => {
     expect(calls[4]!.url.searchParams.get('hsm_id')).toBe('tpl-1');
   });
 
+  it('edits a rejected template by id', async () => {
+    const { fetch, calls } = mockFetch(jsonResponse(200, { success: true }));
+    const { wa } = client(fetch);
+    await wa.editTemplate('tpl-9', { components: [{ type: 'BODY', text: 'Hello {{1}}, thanks for your order.', example: { body_text: [['Ali']] } }] });
+    expect(calls[0]!.method).toBe('POST');
+    expect(calls[0]!.url.pathname).toMatch(/\/tpl-9$/);
+    expect(JSON.parse(calls[0]!.body as string)).toMatchObject({ components: [{ type: 'BODY' }] });
+  });
+
   it('registers numbers, requests and verifies codes', async () => {
     const ok = () => jsonResponse(200, { success: true });
     const { fetch, calls } = mockFetch(ok(), ok(), ok());

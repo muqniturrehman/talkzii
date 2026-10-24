@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { FileText } from 'lucide-react';
 import { renderTemplatePreview, summarizeTemplate, type TemplateSummary } from '@talkzi/whatsapp/templates';
 import { Badge } from '@talkzi/ui/badge';
@@ -203,7 +204,7 @@ export function TemplatePicker({
             description="Create a template and submit it to Meta for approval from the Templates page."
             action={
               <Button asChild variant="outline">
-                <a href="/app/templates/new">Create template</a>
+                <Link href="/app/templates/new">Create template</Link>
               </Button>
             }
           />

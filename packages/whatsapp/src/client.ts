@@ -17,6 +17,8 @@ import type {
   SendOptions,
   SendResult,
   SuccessResponse,
+  TemplateCategory,
+  TemplateComponentDefinition,
   TemplateInfo,
   TemplateSendComponent,
   TokenExchangeResult,
@@ -478,6 +480,11 @@ export class WhatsAppClient extends GraphTransport {
     return this.call<SuccessResponse>('DELETE', `${wabaId}/message_templates`, {
       query: { name: input.name, hsm_id: input.hsmId },
     });
+  }
+
+  /** Edits a template's components (and optionally category) — used to resubmit rejected templates. */
+  async editTemplate(templateId: string, input: { components: TemplateComponentDefinition[]; category?: TemplateCategory }) {
+    return this.call<SuccessResponse>('POST', templateId, { json: input, retries: 1 });
   }
 
   async getTemplateStatus(templateId: string) {

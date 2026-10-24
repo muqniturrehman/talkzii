@@ -70,6 +70,7 @@ export function createMockWhatsAppClient(): WhatsAppApi {
     createTemplate: async (_wabaId, input) => ({ id: fakeId('9'), status: 'PENDING', category: input.category }),
     listAllTemplates: async () => [],
     getTemplateStatus: async (id) => ({ id, name: 'mock', language: 'en', status: 'APPROVED', category: 'UTILITY' }),
+    editTemplate: ok,
     deleteTemplate: ok,
     uploadTemplateExample: async () => fakeId('4:mockhandle'),
     registerPhoneNumber: ok,

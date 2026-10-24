@@ -30,6 +30,7 @@ export type WhatsAppApi = Pick<
   | 'createTemplate'
   | 'listAllTemplates'
   | 'getTemplateStatus'
+  | 'editTemplate'
   | 'deleteTemplate'
   | 'uploadTemplateExample'
   | 'registerPhoneNumber'
