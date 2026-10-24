@@ -39,6 +39,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-hook-form": "^7.91.0",
+    "recharts": "^3.10.1",
     "resend": "^6.34.1",
     "server-only": "^0.0.1",
     "zod": "catalog:",
