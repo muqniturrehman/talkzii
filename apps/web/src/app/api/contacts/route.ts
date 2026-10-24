@@ -1,14 +1,16 @@
+import { after } from 'next/server';
 import { contactListQuerySchema, createContactSchema, normalizePhone } from '@talkzi/shared';
 import type { Json } from '@talkzi/db';
 import { ApiError } from '@/lib/api/errors';
 import { createHandler } from '@/lib/api/handler';
 import { contactCapacity, listContacts, planLimitError, workspaceCountryCode } from '@/lib/contacts/service';
+import { emitEvent } from '@/lib/outbound/emit';
 
 export const GET = createHandler({ role: 'viewer', query: contactListQuerySchema }, async ({ supabase, query }) =>
   listContacts(supabase, query),
 );
 
-export const POST = createHandler({ role: 'agent', body: createContactSchema }, async ({ supabase, admin, body, workspace, user }) => {
+export const POST = createHandler({ role: 'agent', body: createContactSchema }, async ({ supabase, admin, body, workspace, user, log }) => {
   const waId = normalizePhone(body.phone, await workspaceCountryCode(supabase, workspace.id));
   if (!waId) throw ApiError.validation({ fieldErrors: { phone: ['Enter a valid phone number with country code'] } });
 
@@ -37,5 +39,6 @@ export const POST = createHandler({ role: 'agent', body: createContactSchema }, 
       .from('contact_labels')
       .upsert(body.labelIds.map((labelId) => ({ contact_id: contact.id, label_id: labelId, workspace_id: workspace.id })), { ignoreDuplicates: true });
   }
+  after(() => emitEvent(admin(), workspace.id, 'contact.created', { contact: { ...contact, phone: `+${contact.wa_id}` } }, log));
   return contact;
 });

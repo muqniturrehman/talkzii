@@ -13,5 +13,6 @@ export * from './schemas/contacts';
 export * from './schemas/templates';
 export * from './schemas/broadcasts';
 export * from './schemas/chatbots';
+export * from './schemas/platform';
 export * from './pricing';
 export * from './phone';

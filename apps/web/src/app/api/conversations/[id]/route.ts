@@ -1,15 +1,17 @@
+import { after } from 'next/server';
 import { updateConversationSchema } from '@talkzi/shared';
 import type { TablesUpdate } from '@talkzi/db';
 import { ApiError } from '@/lib/api/errors';
 import { createHandler, requireUuid, unwrap } from '@/lib/api/handler';
 import { getConversationDetail } from '@/lib/inbox/queries';
+import { emitEvent } from '@/lib/outbound/emit';
 
 export const GET = createHandler({ role: 'viewer' }, async ({ supabase, params }) =>
   getConversationDetail(supabase, requireUuid(params.id, 'Conversation')),
 );
 
 /** Status, assignment, snooze, bot pause and CSAT. RLS: agent+. */
-export const PATCH = createHandler({ role: 'agent', body: updateConversationSchema }, async ({ supabase, params, body, workspace }) => {
+export const PATCH = createHandler({ role: 'agent', body: updateConversationSchema }, async ({ supabase, admin, params, body, workspace, user, log }) => {
   const id = requireUuid(params.id, 'Conversation');
   const now = new Date();
   const update: TablesUpdate<'conversations'> = {};
@@ -55,5 +57,8 @@ export const PATCH = createHandler({ role: 'agent', body: updateConversationSche
       .maybeSingle(),
   );
   if (!row) throw ApiError.notFound('Conversation not found.');
+  if (body.status === 'resolved') {
+    after(() => emitEvent(admin(), workspace.id, 'conversation.resolved', { conversation_id: id, resolved_by: user.id, csat_score: row.csat_score }, log));
+  }
   return row;
 });

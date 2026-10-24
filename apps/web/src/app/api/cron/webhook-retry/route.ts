@@ -1,4 +1,5 @@
 import { createCronHandler } from '@/lib/cron';
+import { processDueDeliveries } from '@/lib/outbound/emit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { runMetaEvent } from '@/lib/webhooks/meta/run';
 
@@ -11,9 +12,10 @@ const BATCH = 25;
 
 /**
  * Re-processes inbound webhook events that failed (or never got processed
- * because the function died) — safe because processing is idempotent.
+ * because the function died) — safe because processing is idempotent — then
+ * retries outbound webhook deliveries whose backoff has elapsed.
  */
-export const GET = createCronHandler('webhook-retry', async ({ startedAt }) => {
+export const GET = createCronHandler('webhook-retry', async ({ startedAt, log }) => {
   const admin = createSupabaseAdminClient();
   const stale = new Date(Date.now() - 2 * 60_000).toISOString();
 
@@ -34,5 +36,6 @@ export const GET = createCronHandler('webhook-retry', async ({ startedAt }) => {
     retried += 1;
   }
 
-  return { inboundRetried: retried };
+  const outbound = Date.now() - startedAt < 40_000 ? await processDueDeliveries(admin, log) : { outboundRetried: 0, outboundDelivered: 0 };
+  return { inboundRetried: retried, ...outbound };
 });

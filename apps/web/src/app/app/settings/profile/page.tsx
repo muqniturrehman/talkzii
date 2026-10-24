@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
+import { planHasFeature } from '@talkzi/shared';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@talkzi/ui/card';
 import { NewPasswordForm } from '@/components/auth/password-forms';
+import { ApiKeysPanel } from '@/components/app/integrations/api-keys-panel';
 import { ProfileForm } from '@/components/app/settings/profile-form';
 import { requireWorkspace } from '@/lib/auth/session';
 
@@ -34,6 +36,17 @@ export default async function ProfileSettingsPage() {
           <NewPasswordForm endpoint="/api/profile/password" submitLabel="Change password" />
         </CardContent>
       </Card>
+      {planHasFeature(session.workspace.plan, 'api_access') ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Personal API tokens</CardTitle>
+            <CardDescription>For scripts that act as you in {session.workspace.name}. They stop working if you leave the workspace.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ApiKeysPanel personal />
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

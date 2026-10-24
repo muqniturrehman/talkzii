@@ -1,5 +1,6 @@
 import 'server-only';
 import type { Logger } from '@/lib/logger';
+import { emitEvent } from '@/lib/outbound/emit';
 import type { TypedSupabaseClient } from '@/lib/supabase/types';
 import { processBroadcast, type ProcessResult } from './processor';
 import { getBroadcastQueue } from './queue';
@@ -24,6 +25,14 @@ export async function runBroadcastTick(admin: TypedSupabaseClient, log: Logger, 
       try {
         const result = await processBroadcast(deps, item.broadcastId, { deadline });
         results.push(result);
+        if (result.done && result.workspaceId && (result.sent || result.failed || result.skipped)) {
+          const { data: b } = await admin
+            .from('broadcasts')
+            .select('id, name, status, total_recipients, sent_count, delivered_count, read_count, failed_count, skipped_count, completed_at')
+            .eq('id', result.broadcastId)
+            .maybeSingle();
+          if (b?.status === 'completed') await emitEvent(admin, result.workspaceId, 'broadcast.completed', { broadcast: b }, log);
+        }
         await item.release({ done: result.done || Boolean(result.paused), delayMs: result.waiting ? 5 * 60_000 : 1_000 });
       } catch (error) {
         log.error({ err: error, broadcastId: item.broadcastId }, 'Broadcast slice failed');

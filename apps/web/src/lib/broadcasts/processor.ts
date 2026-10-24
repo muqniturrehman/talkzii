@@ -69,6 +69,7 @@ export interface ProcessDeps {
 
 export interface ProcessResult {
   broadcastId: string;
+  workspaceId: string | null;
   sent: number;
   failed: number;
   skipped: number;
@@ -103,10 +104,11 @@ export async function processBroadcast(
 ): Promise<ProcessResult> {
   const { store, log } = deps;
   const now = () => deps.now?.() ?? new Date();
-  const result: ProcessResult = { broadcastId, sent: 0, failed: 0, skipped: 0, retried: 0, done: false, paused: null, waiting: null };
+  const result: ProcessResult = { broadcastId, workspaceId: null, sent: 0, failed: 0, skipped: 0, retried: 0, done: false, paused: null, waiting: null };
 
   const broadcast = await store.getBroadcast(broadcastId);
   if (!broadcast || !['scheduled', 'sending'].includes(broadcast.status)) return { ...result, done: true };
+  result.workspaceId = broadcast.workspace_id;
 
   const pause = async (reason: string) => {
     await store.pause(broadcast.id, reason);

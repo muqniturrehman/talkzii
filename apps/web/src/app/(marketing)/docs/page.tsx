@@ -39,7 +39,7 @@ export default function DocsPage() {
       <div className="grid gap-12 lg:grid-cols-[200px_1fr]">
         <nav aria-label="Docs" className="hidden lg:block">
           <ul className="sticky top-24 space-y-1 text-sm">
-            {['Introduction', 'Authentication', 'Endpoints', 'Send a message', 'Errors', 'Webhooks', 'Verify signatures'].map(
+            {['Introduction', 'Authentication', 'Endpoints', 'Send a message', 'Errors', 'Webhooks', 'Verify signatures', 'Incoming webhooks'].map(
               (label) => (
                 <li key={label}>
                   <a
@@ -165,8 +165,26 @@ export function verifyTalkzi(rawBody: string, header: string, secret: string) {
   const parts = Object.fromEntries(header.split(',').map((p) => p.split('=')));
   const expected = crypto.createHmac('sha256', secret).update(\`\${parts.t}.\${rawBody}\`).digest('hex');
   const fresh = Math.abs(Date.now() / 1000 - Number(parts.t)) < 300;
-  return fresh && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(parts.v1 ?? ''));
+  const given = Buffer.from(parts.v1 ?? '');
+  return fresh && given.length === expected.length && crypto.timingSafeEqual(Buffer.from(expected), given);
 }`}</Code>
+          </section>
+
+          <section id="incoming-webhooks" className="scroll-mt-24 space-y-3">
+            <h2 className="text-2xl font-semibold">Incoming webhooks</h2>
+            <p className="text-muted-foreground">
+              Connect Zapier, n8n or your own app in <strong className="text-foreground">Integrations → Apps</strong> to get a
+              webhook URL and a token. POST one of two actions to it: <code>send_message</code> (same body as{' '}
+              <code>POST /messages</code>) or <code>upsert_contact</code> (same body as <code>POST /contacts</code>).
+            </p>
+            <Code>{`curl -X POST https://app.talkzi.app/api/webhooks/incoming/<integration-id> \\
+  -H "X-Talkzi-Token: tzin_xxxxxxxxxxxxxxxx" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "action": "upsert_contact", "phone": "+923001234567", "name": "Ayesha", "labels": ["VIP"] }'`}</Code>
+            <p className="text-sm text-muted-foreground">
+              Shopify and WooCommerce connections are verified with the store’s own webhook signature and send the approved
+              template you mapped to each event (for example <code>orders/create</code> or <code>order.created</code>).
+            </p>
           </section>
         </article>
       </div>

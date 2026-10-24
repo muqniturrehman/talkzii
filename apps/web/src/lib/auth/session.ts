@@ -1,5 +1,6 @@
 import 'server-only';
 import { redirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { cache } from 'react';
 import { hasMinRole, type WorkspaceRole } from '@talkzi/shared';
 import type { Profile, Workspace } from '@talkzi/db';
@@ -27,6 +28,9 @@ const WORKSPACE_FIELDS =
  * memberships and the active workspace (claim → profile → first membership).
  */
 export const getSession = cache(async (): Promise<SessionContext | null> => {
+  // Sessions are per request: never let a build without Supabase env vars
+  // prerender a signed-out page (a static redirect to /login).
+  await connection();
   if (!isSupabaseConfigured()) return null;
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.auth.getClaims();
