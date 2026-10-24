@@ -46,6 +46,7 @@ export const workspaceNav: NavItem[] = [
 export const settingsNav: { href: string; label: string; role?: WorkspaceRole }[] = [
   { href: '/app/settings/profile', label: 'Profile' },
   { href: '/app/settings/general', label: 'General', role: 'admin' },
+  { href: '/app/settings/ai', label: 'AI & knowledge', role: 'admin' },
   { href: '/app/settings/branding', label: 'Branding', role: 'admin' },
   { href: '/app/settings/billing', label: 'Billing', role: 'admin' },
   { href: '/app/settings/compliance', label: 'Compliance', role: 'admin' },

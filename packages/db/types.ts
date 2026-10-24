@@ -27,6 +27,7 @@ export type Database = {
           created_at: string
           document_id: string
           embedding: string | null
+          embedding_model: string
           id: string
           token_count: number | null
           workspace_id: string
@@ -37,6 +38,7 @@ export type Database = {
           created_at?: string
           document_id: string
           embedding?: string | null
+          embedding_model?: string
           id?: string
           token_count?: number | null
           workspace_id: string
@@ -47,6 +49,7 @@ export type Database = {
           created_at?: string
           document_id?: string
           embedding?: string | null
+          embedding_model?: string
           id?: string
           token_count?: number | null
           workspace_id?: string
@@ -73,6 +76,7 @@ export type Database = {
           chunk_count: number
           created_at: string
           created_by: string | null
+          embedding_model: string
           error: string | null
           id: string
           mime_type: string | null
@@ -87,6 +91,7 @@ export type Database = {
           chunk_count?: number
           created_at?: string
           created_by?: string | null
+          embedding_model?: string
           error?: string | null
           id?: string
           mime_type?: string | null
@@ -101,6 +106,7 @@ export type Database = {
           chunk_count?: number
           created_at?: string
           created_by?: string | null
+          embedding_model?: string
           error?: string | null
           id?: string
           mime_type?: string | null
@@ -2356,6 +2362,22 @@ export type Database = {
         Returns: {
           id: string
           document_id: string
+          content: string
+          similarity: number
+        }[]
+      }
+      match_workspace_chunks: {
+        Args: {
+          p_workspace_id: string
+          p_query_embedding: string
+          p_embedding_model: string
+          p_match_count?: number
+          p_min_similarity?: number
+        }
+        Returns: {
+          id: string
+          document_id: string
+          title: string
           content: string
           similarity: number
         }[]

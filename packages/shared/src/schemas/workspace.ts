@@ -46,6 +46,15 @@ export interface WorkspaceSettings {
   ai?: Partial<AiSettings>;
 }
 
+/** Partial update of one or more workspace settings sections (merged server-side). */
+export const updateWorkspaceSettingsSchema = z
+  .object({
+    ai: aiSettingsSchema.partial().optional(),
+    compliance: complianceSettingsSchema.partial().optional(),
+  })
+  .refine((v) => Boolean(v.ai ?? v.compliance), { message: 'Nothing to update' });
+export type UpdateWorkspaceSettingsInput = z.infer<typeof updateWorkspaceSettingsSchema>;
+
 export function resolveCompliance(settings: unknown): ComplianceSettings {
   const raw = (settings as WorkspaceSettings | null)?.compliance ?? {};
   return { ...DEFAULT_COMPLIANCE, ...raw };

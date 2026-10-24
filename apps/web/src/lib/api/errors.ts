@@ -20,6 +20,7 @@ export type ErrorCode =
   | 'CONTACT_OPTED_OUT'
   | 'WHATSAPP_ERROR'
   | 'PAYMENT_ERROR'
+  | 'AI_ERROR'
   | 'INTERNAL_ERROR';
 
 /** Typed, client-safe API error. `message` is shown to users. */

@@ -86,8 +86,6 @@ export interface SentMessage {
   duplicate: boolean;
 }
 
-const contactName = (c: ConversationForSend['contact']) => c.name ?? c.profile_name ?? '';
-
 interface Prepared {
   dbType: MessageType;
   payload: MessagePayload;
@@ -260,11 +258,4 @@ export async function sendMessage(input: SendMessageInput, ctx: SendContext, dep
   }
 }
 
-/** Personalises canned replies: {{contact.name}}, {{contact.first_name}}, {{contact.phone}}. */
-export function renderCannedReply(body: string, contact: ConversationForSend['contact']): string {
-  const name = contactName(contact);
-  return body
-    .replace(/\{\{\s*contact\.name\s*\}\}/g, name || 'there')
-    .replace(/\{\{\s*contact\.first_name\s*\}\}/g, name.split(' ')[0] || 'there')
-    .replace(/\{\{\s*contact\.phone\s*\}\}/g, `+${contact.wa_id}`);
-}
+export { renderCannedReply } from '@/lib/inbox/canned';

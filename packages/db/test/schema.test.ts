@@ -517,6 +517,41 @@ describe('realtime, storage and AI search', () => {
     expect(res.rows).toHaveLength(1);
     expect(res.rows[0]?.content).toBe('Delivery takes 2-3 days');
   });
+
+  it('match_workspace_chunks only compares vectors from the same embedding model', async () => {
+    const owner = await createAuthUser(db, `${unique('rag2')}@test.dev`);
+    const ws = await createWorkspaceAs(owner, 'RAG Two');
+    const doc = await db.query<{ id: string }>(
+      `insert into public.ai_documents (workspace_id, title, status, embedding_model) values ($1, 'Policies', 'ready', 'talkzi-hash-v1') returning id`,
+      [ws],
+    );
+    const vec = (hot: number) => {
+      const v = new Array<number>(1536).fill(0);
+      v[hot] = 1;
+      return `[${v.join(',')}]`;
+    };
+    await db.query(
+      `insert into public.ai_document_chunks (workspace_id, document_id, chunk_index, content, embedding, embedding_model)
+       values ($1, $2, 0, 'Shipping is free over Rs 5,000', $3::extensions.vector, 'talkzi-hash-v1')`,
+      [ws, doc.rows[0]!.id, vec(7)],
+    );
+
+    const search = (model: string) =>
+      asServiceRole(db, (tx) =>
+        tx.query<{ title: string; content: string }>(
+          'select title, content from public.match_workspace_chunks($1, $2::extensions.vector, $3, 3, 0.5)',
+          [ws, vec(7), model],
+        ),
+      );
+    expect((await search('talkzi-hash-v1')).rows).toEqual([{ title: 'Policies', content: 'Shipping is free over Rs 5,000' }]);
+    expect((await search('text-embedding-3-small')).rows).toHaveLength(0);
+
+    await expect(
+      asUser(db, owner, (tx) =>
+        tx.query('select * from public.match_workspace_chunks($1, $2::extensions.vector, $3)', [ws, vec(7), 'talkzi-hash-v1']),
+      ),
+    ).rejects.toThrow(/permission denied/);
+  });
 });
 
 describe('seed data', () => {
