@@ -47,5 +47,11 @@ export const intentSchema = z.object({
 });
 export type IntentResult = z.infer<typeof intentSchema>;
 
+export const answerSchema = z.object({
+  answer: z.string().describe('Reply to send to the customer'),
+  grounded: z.boolean().describe('True only when the knowledge base contains the answer'),
+});
+export type GroundedAnswer = z.infer<typeof answerSchema>;
+
 export const clamp = (value: number, min: number, max: number) =>
   Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : min;

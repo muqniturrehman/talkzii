@@ -202,6 +202,22 @@ async function prepare(input: SendMessageInput, conversation: ConversationForSen
         media: null,
         templateId: null,
       };
+    case 'interactive_list':
+      return {
+        dbType: 'interactive',
+        payload: {
+          type: 'interactive',
+          interactive: {
+            type: 'list',
+            body: { text: input.body },
+            action: { button: input.buttonText, sections: [{ title: input.buttonText.slice(0, 24), rows: input.rows }] },
+          },
+        },
+        body: input.body,
+        content: { interactive: { type: 'list', body: input.body, buttonText: input.buttonText, rows: input.rows } },
+        media: null,
+        templateId: null,
+      };
   }
 }
 

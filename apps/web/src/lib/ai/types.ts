@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import type { AiSettings } from '@talkzi/shared';
-import type { ConversationSummary, IntentResult, SentimentResult } from './schemas';
+import type { ConversationSummary, GroundedAnswer, IntentResult, SentimentResult } from './schemas';
 
 export type AiProviderName = 'openai' | 'anthropic' | 'heuristic';
 
@@ -49,6 +49,8 @@ export interface AiTasks {
   summarize(input: TaskInput): Promise<ConversationSummary>;
   sentiment(input: TaskInput): Promise<SentimentResult>;
   intent(input: TaskInput): Promise<IntentResult>;
+  /** Chatbot answer grounded in the knowledge base (grounded=false when it isn't covered). */
+  answerQuestion(input: TaskInput): Promise<GroundedAnswer>;
 }
 
 export type AiErrorCode = 'AUTH' | 'RATE_LIMITED' | 'REFUSED' | 'BAD_OUTPUT' | 'UNAVAILABLE';

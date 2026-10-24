@@ -197,7 +197,7 @@ export function useSendMessage(conversation: Pick<ConversationDetail, 'id'>, sen
         id: `temp-${clientMessageId}`,
         conversation_id: conversation.id,
         direction: 'outbound',
-        type: input.type === 'interactive_buttons' ? 'interactive' : input.type,
+        type: input.type === 'interactive_buttons' || input.type === 'interactive_list' ? 'interactive' : input.type,
         status: 'queued',
         body: input.type === 'text' ? input.text : input.type === 'template' ? 'Sending template…' : 'caption' in input ? (input.caption ?? null) : null,
         content: {},

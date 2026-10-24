@@ -93,7 +93,16 @@ function LocationContent({ message }: { message: MessageItem }) {
 }
 
 function InteractiveButtons({ message }: { message: MessageItem }) {
-  const buttons = (message.content as { interactive?: { buttons?: { id: string; title: string }[] } } | null)?.interactive?.buttons;
+  const interactive = (message.content as { interactive?: { buttons?: { id: string; title: string }[]; rows?: { id: string; title: string }[]; buttonText?: string } } | null)
+    ?.interactive;
+  if (interactive?.rows?.length) {
+    return (
+      <div className="mt-2 rounded-lg border border-primary/30 px-3 py-1 text-center text-xs font-medium text-primary dark:text-accent" title={interactive.rows.map((r) => r.title).join(', ')}>
+        ☰ {interactive.buttonText ?? 'Options'} · {interactive.rows.length} options
+      </div>
+    );
+  }
+  const buttons = interactive?.buttons;
   if (!buttons?.length) return null;
   return (
     <div className="mt-2 flex flex-col gap-1">

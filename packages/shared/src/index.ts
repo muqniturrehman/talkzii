@@ -12,5 +12,6 @@ export * from './schemas/inbox';
 export * from './schemas/contacts';
 export * from './schemas/templates';
 export * from './schemas/broadcasts';
+export * from './schemas/chatbots';
 export * from './pricing';
 export * from './phone';

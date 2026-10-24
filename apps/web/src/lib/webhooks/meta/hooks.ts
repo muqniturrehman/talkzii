@@ -1,5 +1,6 @@
 import 'server-only';
 import { attributeBroadcastReply } from '@/lib/broadcasts/replies';
+import { handleChatbotInbound } from '@/lib/chatbots/runtime';
 import type { Logger } from '@/lib/logger';
 import type { TypedSupabaseClient } from '@/lib/supabase/types';
 import type { WebhookHooks } from './types';
@@ -9,10 +10,11 @@ import type { WebhookHooks } from './types';
  * own module and is composed here; the processor isolates hook failures so a
  * failing side effect never fails the webhook.
  */
-export function createWebhookHooks(admin: TypedSupabaseClient, _log: Logger): WebhookHooks {
+export function createWebhookHooks(admin: TypedSupabaseClient, log: Logger): WebhookHooks {
   return {
     async onInboundMessage(ctx) {
       await attributeBroadcastReply(admin, ctx);
+      await handleChatbotInbound(admin, ctx, log);
     },
   };
 }

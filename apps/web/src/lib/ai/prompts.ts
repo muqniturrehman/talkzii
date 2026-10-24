@@ -79,3 +79,15 @@ export function intentPrompt(input: TaskInput) {
     prompt: `${conversationBlock(input)}\n\nIdentify the customer's main intent.`,
   };
 }
+
+export function answerPrompt(input: TaskInput) {
+  return {
+    system: [
+      `You are the WhatsApp assistant for ${input.businessName}. Answer the customer's latest message using only the knowledge base excerpts.`,
+      `Reply in the customer's language and script, in at most 3 short sentences, with a ${TONES[input.tone]} tone.`,
+      'If the excerpts do not contain the answer, set grounded to false and write a brief, polite reply saying a teammate will help.',
+      DATA_NOTE,
+    ].join('\n'),
+    prompt: `${conversationBlock(input)}${knowledgeBlock(input)}\n\nAnswer the customer's latest message.`,
+  };
+}

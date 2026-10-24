@@ -1,5 +1,6 @@
-import { intentPrompt, sentimentPrompt, summarizePrompt, suggestRepliesPrompt } from './prompts';
+import { answerPrompt, intentPrompt, sentimentPrompt, summarizePrompt, suggestRepliesPrompt } from './prompts';
 import {
+  answerSchema,
   clamp,
   intentSchema,
   replySuggestionsSchema,
@@ -37,6 +38,11 @@ export function createLlmTasks(provider: AiProvider): AiTasks {
     async intent(input) {
       const result = await provider.generateObject({ ...intentPrompt(input), schema: intentSchema, name: 'customer_intent' });
       return { ...result, confidence: clamp(result.confidence, 0, 1) };
+    },
+    async answerQuestion(input) {
+      if (input.knowledge.length === 0) return { answer: '', grounded: false };
+      const result = await provider.generateObject({ ...answerPrompt(input), schema: answerSchema, name: 'grounded_answer' });
+      return { answer: result.answer.trim(), grounded: result.grounded && result.answer.trim().length > 0 };
     },
   };
 }
@@ -137,6 +143,10 @@ export function createHeuristicTasks(): AiTasks {
     },
     async intent(input) {
       return heuristicIntent(input);
+    },
+    async answerQuestion(input) {
+      const best = input.knowledge[0];
+      return best ? { answer: firstSentence(best.content), grounded: true } : { answer: '', grounded: false };
     },
   };
 }

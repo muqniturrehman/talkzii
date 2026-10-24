@@ -54,6 +54,16 @@ export const sendMessageSchema = z.discriminatedUnion('type', [
     body: z.string().trim().min(1).max(1024),
     buttons: z.array(z.object({ id: z.string().min(1).max(256), title: z.string().min(1).max(20) })).min(1).max(3),
   }),
+  z.object({
+    ...base,
+    type: z.literal('interactive_list'),
+    body: z.string().trim().min(1).max(4096),
+    buttonText: z.string().trim().min(1).max(20),
+    rows: z
+      .array(z.object({ id: z.string().min(1).max(200), title: z.string().min(1).max(24), description: z.string().max(72).optional() }))
+      .min(1)
+      .max(10),
+  }),
 ]);
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 
