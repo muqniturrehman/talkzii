@@ -6,18 +6,28 @@
   "description": "Supabase migrations, generated database types and seed data for Talkzi.",
   "exports": {
     ".": "./src/index.ts",
-    "./types": "./types.ts"
+    "./types": "./types.ts",
+    "./seed-data": "./src/seed-data.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
+    "migrate": "tsx scripts/migrate.ts",
+    "seed": "tsx seed.ts",
+    "types": "node scripts/gen-types-remote.mjs",
+    "types:local": "tsx scripts/gen-types-local.ts",
     "clean": "rimraf node_modules/.cache"
   },
   "dependencies": {
-    "@supabase/supabase-js": "catalog:"
+    "@supabase/supabase-js": "catalog:",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.11",
+    "@electric-sql/pglite-pgvector": "^0.0.12",
     "@types/node": "catalog:",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
