@@ -606,6 +606,57 @@ describe('contact import', () => {
   });
 });
 
+describe('broadcast audiences', () => {
+  it('materializes label audiences with exclusions, skips opted-out contacts and enforces the cap', async () => {
+    const owner = await createAuthUser(db, `${unique('aud')}@test.dev`);
+    const ws = await createWorkspaceAs(owner, 'Audience Co');
+    const label = async (name: string) =>
+      (await db.query<{ id: string }>('insert into public.labels (workspace_id, name) values ($1, $2) returning id', [ws, name])).rows[0]!.id;
+    const vip = await label('VIP');
+    const blocked = await label('Do not message');
+    const contact = async (waId: string, optedOut = false, labels: string[] = []) => {
+      const id = (
+        await db.query<{ id: string }>('insert into public.contacts (workspace_id, wa_id, opted_out) values ($1, $2, $3) returning id', [ws, waId, optedOut])
+      ).rows[0]!.id;
+      for (const l of labels) await db.query('insert into public.contact_labels (contact_id, label_id, workspace_id) values ($1, $2, $3)', [id, l, ws]);
+      return id;
+    };
+    await contact('923000000001', false, [vip]);
+    await contact('923000000002', true, [vip]);
+    await contact('923000000003', false, [vip, blocked]);
+    await contact('923000000004');
+
+    const broadcast = await db.query<{ id: string }>(
+      `insert into public.broadcasts (workspace_id, name, audience) values ($1, 'Eid sale', $2::jsonb) returning id`,
+      [ws, JSON.stringify({ type: 'labels', labelIds: [vip], excludeLabelIds: [blocked] })],
+    );
+    const id = broadcast.rows[0]!.id;
+
+    await expect(
+      asServiceRole(db, (tx) => tx.query('select public.materialize_broadcast_recipients($1, 0)', [id])),
+    ).rejects.toThrow(/plan_limit:1:0/);
+
+    const result = await asServiceRole(db, (tx) =>
+      tx.query<{ r: Record<string, number> }>('select public.materialize_broadcast_recipients($1, 10) as r', [id]),
+    );
+    expect(result.rows[0]!.r).toEqual({ total: 2, sendable: 1, skipped: 1 });
+
+    const recipients = await db.query<{ wa_id: string; status: string }>(
+      'select wa_id, status::text from public.broadcast_recipients where broadcast_id = $1 order by wa_id',
+      [id],
+    );
+    expect(recipients.rows).toEqual([
+      { wa_id: '923000000001', status: 'pending' },
+      { wa_id: '923000000002', status: 'skipped' },
+    ]);
+    const counters = await db.query<{ total_recipients: number; skipped_count: number }>(
+      'select total_recipients, skipped_count from public.broadcasts where id = $1',
+      [id],
+    );
+    expect(counters.rows[0]).toEqual({ total_recipients: 2, skipped_count: 1 });
+  });
+});
+
 describe('seed data', () => {
   it('fits the schema and powers the analytics functions', async () => {
     const owner = await createAuthUser(db, `${unique('seed-owner')}@test.dev`);

@@ -2195,6 +2195,17 @@ export type Database = {
         }
         Returns: Json
       }
+      broadcast_audience: {
+        Args: {
+          p_workspace_id: string
+          p_audience: Json
+        }
+        Returns: {
+          contact_id: string
+          wa_id: string
+          opted_out: boolean
+        }[]
+      }
       claim_broadcast_recipients: {
         Args: {
           p_broadcast_id: string
@@ -2392,6 +2403,13 @@ export type Database = {
           content: string
           similarity: number
         }[]
+      }
+      materialize_broadcast_recipients: {
+        Args: {
+          p_broadcast_id: string
+          p_max_recipients?: number
+        }
+        Returns: Json
       }
       message_status_rank: {
         Args: {
