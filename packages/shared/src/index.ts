@@ -7,3 +7,4 @@ export * from './locale';
 export * from './schemas/common';
 export * from './schemas/auth';
 export * from './schemas/workspace';
+export * from './schemas/meta';
