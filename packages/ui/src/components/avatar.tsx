@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Avatar as AvatarPrimitive } from 'radix-ui';
+import { initials } from '../lib/initials';
 import { cn } from '../lib/utils';
 
 export function Avatar({ className, ...props }: React.ComponentProps<typeof AvatarPrimitive.Root>) {
@@ -28,12 +29,6 @@ export function AvatarFallback({ className, ...props }: React.ComponentProps<typ
       {...props}
     />
   );
-}
-
-export function initials(name: string | null | undefined): string {
-  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '')).toUpperCase();
 }
 
 /** Avatar with image + initials fallback in one line. */

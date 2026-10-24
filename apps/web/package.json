@@ -18,6 +18,7 @@
     "@talkzi/shared": "workspace:*",
     "@talkzi/ui": "workspace:*",
     "@talkzi/whatsapp": "workspace:*",
+    "framer-motion": "^14.6.0",
     "lucide-react": "catalog:",
     "next": "^16.4.3",
     "react": "catalog:",
