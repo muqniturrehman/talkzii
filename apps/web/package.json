@@ -13,10 +13,12 @@
     "clean": "rimraf .next node_modules/.cache"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
     "@talkzi/db": "workspace:*",
     "@talkzi/shared": "workspace:*",
     "@talkzi/ui": "workspace:*",
     "@talkzi/whatsapp": "workspace:*",
+    "lucide-react": "catalog:",
     "next": "^16.4.3",
     "react": "catalog:",
     "react-dom": "catalog:"
