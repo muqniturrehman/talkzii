@@ -19,3 +19,4 @@ export * from './schemas/agency';
 export * from './pricing';
 export * from './phone';
 export * from './color';
+export * from './compliance';

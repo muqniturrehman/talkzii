@@ -787,6 +787,55 @@ describe('agency workspaces', () => {
   });
 });
 
+describe('compliance', () => {
+  it('purges messages past retention in batches and returns their media paths', async () => {
+    const owner = await createAuthUser(db, `${unique('retain')}@test.dev`);
+    const ws = await createWorkspaceAs(owner, 'Retention Co');
+    const { phoneId } = await addPhone(ws);
+    const contact = await db.query<{ id: string }>(`insert into public.contacts (workspace_id, wa_id) values ($1, '923007770001') returning id`, [ws]);
+    const conv = await db.query<{ id: string }>(
+      `insert into public.conversations (workspace_id, contact_id, phone_number_id) values ($1, $2, $3) returning id`,
+      [ws, contact.rows[0]!.id, phoneId],
+    );
+    const insert = (age: string, media: Record<string, unknown> | null) =>
+      db.query(
+        `insert into public.messages (workspace_id, conversation_id, contact_id, direction, status, sender_type, media, created_at)
+         values ($1, $2, $3, 'inbound', 'received', 'contact', $4, now() - $5::interval)`,
+        [ws, conv.rows[0]!.id, contact.rows[0]!.id, media ? JSON.stringify(media) : null, age],
+      );
+    await insert('400 days', { storagePath: `${ws}/old.jpg` });
+    await insert('390 days', null);
+    await insert('380 days', { id: 'meta-only' });
+    await insert('10 days', { storagePath: `${ws}/new.jpg` });
+
+    const first = await asServiceRole(db, async (tx) =>
+      (await tx.query<{ storage_path: string | null }>(`select * from public.purge_workspace_messages($1, now() - interval '365 days', 2)`, [ws])).rows,
+    );
+    expect(first).toHaveLength(2);
+    expect(first.map((r) => r.storage_path)).toContain(`${ws}/old.jpg`);
+    const second = await asServiceRole(db, async (tx) =>
+      (await tx.query(`select * from public.purge_workspace_messages($1, now() - interval '365 days', 2)`, [ws])).rows,
+    );
+    expect(second).toHaveLength(1);
+    const left = await db.query<{ n: number }>('select count(*)::int as n from public.messages where workspace_id = $1', [ws]);
+    expect(left.rows[0]?.n).toBe(1);
+    await expect(asUser(db, owner, (tx) => tx.query(`select * from public.purge_workspace_messages($1, now())`, [ws]))).rejects.toThrow(/permission denied/);
+  });
+
+  it('purges old platform logs but keeps failed events and live sessions', async () => {
+    await db.query(`insert into public.webhook_events (source, payload, status, created_at) values
+      ('meta', '{}', 'processed', now() - interval '40 days'),
+      ('meta', '{}', 'failed', now() - interval '40 days'),
+      ('meta', '{}', 'processed', now() - interval '1 day')`);
+    const counts = await asServiceRole(db, async (tx) =>
+      (await tx.query<{ r: Record<string, number> }>(`select public.purge_platform_logs(now() - interval '30 days') as r`)).rows[0]!.r,
+    );
+    expect(counts.webhook_events).toBeGreaterThanOrEqual(1);
+    const failed = await db.query<{ n: number }>(`select count(*)::int as n from public.webhook_events where status = 'failed' and created_at < now() - interval '30 days'`);
+    expect(failed.rows[0]?.n).toBeGreaterThanOrEqual(1);
+  });
+});
+
 describe('seed data', () => {
   it('fits the schema and powers the analytics functions', async () => {
     const owner = await createAuthUser(db, `${unique('seed-owner')}@test.dev`);

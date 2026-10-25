@@ -32,6 +32,7 @@ export const POST = createHandler({ role: 'admin', body: exchangeCodeSchema }, a
       wabaId: body.wabaId,
       phoneNumberId: body.phoneNumberId,
       pin: body.pin,
+      fbUserId: body.fbUserId,
     },
     embeddedSignupDeps(db),
   );

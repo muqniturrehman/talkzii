@@ -83,6 +83,7 @@ const sections: LegalSection[] = [
       <ul>
         <li>To provide the service: sending and receiving WhatsApp messages on your behalf, running broadcasts, chatbots and analytics.</li>
         <li>To provide optional AI features (reply suggestions, summaries, sentiment, intent and knowledge-base answers) when enabled in your workspace.</li>
+        <li>To honour opt-outs automatically when a customer replies with an opt-out keyword (for example STOP or BAND KARO).</li>
         <li>To bill you, prevent fraud and abuse, and keep the platform secure.</li>
         <li>To provide support and communicate service updates.</li>
         <li>To improve Talkzi using aggregated, de-identified usage statistics.</li>

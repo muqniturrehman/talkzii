@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, MessageCircle, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, Download, MessageCircle, Plus, Trash2, X } from 'lucide-react';
 import { formatPhone } from '@talkzi/shared';
 import {
   AlertDialog,
@@ -271,10 +271,10 @@ export function ContactProfile({ id }: { id: string }) {
     onError: (error) => toast.error(error.message),
   });
   const remove = useMutation({
-    mutationFn: () => apiFetch(`/api/contacts/${id}`, { method: 'DELETE' }),
-    onSuccess: () => {
+    mutationFn: () => apiFetch<{ confirmationCode: string }>(`/api/contacts/${id}`, { method: 'DELETE' }),
+    onSuccess: ({ confirmationCode }) => {
       void qc.invalidateQueries({ queryKey: contactsKey });
-      toast.success('Contact deleted.');
+      toast.success(`Contact erased. Confirmation code ${confirmationCode}.`);
       router.push('/app/contacts');
     },
     onError: (error) => toast.error(error.message),
@@ -327,25 +327,35 @@ export function ContactProfile({ id }: { id: string }) {
             </Button>
           ) : null}
           {can('admin') ? (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" aria-label="Delete contact">
-                  <Trash2 />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
-                  <AlertDialogDescription>Conversations, messages and notes with this contact are deleted too.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction destructive onClick={() => remove.mutate()}>
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <>
+              <Button variant="outline" asChild>
+                <a href={`/api/contacts/${id}/export`} download aria-label="Export this contact’s data">
+                  <Download />
+                </a>
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" aria-label="Erase contact">
+                    <Trash2 />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Erase {name}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Permanently deletes this contact with their conversations, messages, notes and media files — use it for erasure requests. Export
+                      their data first if they asked for a copy.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction destructive onClick={() => remove.mutate()}>
+                      Erase
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           ) : null}
         </div>
       </div>

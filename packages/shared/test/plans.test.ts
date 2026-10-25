@@ -32,3 +32,16 @@ describe('white-label helpers', () => {
     }
   });
 });
+
+describe('opt-out keywords', () => {
+  it('matches whole messages in English and Urdu, ignoring case and punctuation', async () => {
+    const { DEFAULT_COMPLIANCE, matchOptKeyword, normalizeKeyword } = await import('../src');
+    expect(normalizeKeyword('  band   karo! ')).toBe('BAND KARO');
+    expect(matchOptKeyword('stop', DEFAULT_COMPLIANCE)).toEqual({ action: 'opt_out', keyword: 'STOP' });
+    expect(matchOptKeyword('Band karo.', DEFAULT_COMPLIANCE)).toEqual({ action: 'opt_out', keyword: 'BAND KARO' });
+    expect(matchOptKeyword('بند کرو۔', DEFAULT_COMPLIANCE)).toEqual({ action: 'opt_out', keyword: 'بند کرو' });
+    expect(matchOptKeyword('Start', DEFAULT_COMPLIANCE)).toEqual({ action: 'opt_in', keyword: 'START' });
+    expect(matchOptKeyword("please don't stop my order", DEFAULT_COMPLIANCE)).toBeNull();
+    expect(matchOptKeyword('', DEFAULT_COMPLIANCE)).toBeNull();
+  });
+});

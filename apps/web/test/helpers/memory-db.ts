@@ -21,11 +21,15 @@ export function createMemoryDb(unique: Record<string, string[][]> = {}) {
     let payload: Row | Row[] | null = null;
     let conflict: string[] = ['id'];
     const filters: ((row: Row) => boolean)[] = [];
+    let window: [number, number] | null = null;
 
     const run = async (): Promise<Result> => {
       const rows = table(name);
       const matches = () => rows.filter((r) => filters.every((f) => f(r)));
-      if (op === 'select') return { data: matches().map((r) => ({ ...r })), error: null };
+      if (op === 'select') {
+        const found = matches().map((r) => ({ ...r }));
+        return { data: window ? found.slice(window[0], window[1] + 1) : found, error: null };
+      }
       if (op === 'update') {
         const hit = matches();
         hit.forEach((r) => Object.assign(r, payload));
@@ -66,8 +70,10 @@ export function createMemoryDb(unique: Record<string, string[][]> = {}) {
       neq: (col: string, val: unknown) => (filters.push((r) => r[col] !== val), builder),
       is: (col: string, val: unknown) => (filters.push((r) => (r[col] ?? null) === val), builder),
       in: (col: string, vals: unknown[]) => (filters.push((r) => vals.includes(r[col])), builder),
+      not: (col: string, op: 'is' | 'eq', val: unknown) => (filters.push((r) => (op === 'is' ? (r[col] ?? null) !== val : r[col] !== val)), builder),
       order: () => builder,
       limit: () => builder,
+      range: (from: number, to: number) => ((window = [from, to]), builder),
       single: async () => {
         const { data, error } = await run();
         if (error) return { data: null, error };

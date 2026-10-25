@@ -1,6 +1,7 @@
 import 'server-only';
 import { attributeBroadcastReply } from '@/lib/broadcasts/replies';
 import { handleChatbotInbound } from '@/lib/chatbots/runtime';
+import { handleOptKeywords } from '@/lib/compliance/opt-keywords';
 import { emitEvent } from '@/lib/outbound/emit';
 import type { Logger } from '@/lib/logger';
 import type { TypedSupabaseClient } from '@/lib/supabase/types';
@@ -39,6 +40,8 @@ export function createWebhookHooks(admin: TypedSupabaseClient, log: Logger): Web
         },
         log,
       );
+      // STOP / START keywords are answered by compliance, not by automations.
+      if (await handleOptKeywords(admin, ctx, log)) return;
       await handleChatbotInbound(admin, ctx, log);
     },
     async onStatus(ctx) {

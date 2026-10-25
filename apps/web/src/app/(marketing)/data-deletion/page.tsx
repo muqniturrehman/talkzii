@@ -42,8 +42,9 @@ const sections: LegalSection[] = [
           <li>Optionally tick “Delete posts, photos and videos…” to request deletion of data Talkzi received from Meta.</li>
         </ul>
         <p>
-          Meta notifies Talkzi automatically. We delete the related access tokens and Meta-derived data within 30 days
-          and give you a confirmation code you can check below.
+          Meta notifies Talkzi automatically. We revoke the related access tokens immediately, delete Meta-derived data
+          within 30 days and give you a confirmation code (it looks like <code>DEL-7K2M9QX4PB</code>) that you can check
+          below.
         </p>
       </>
     ),
@@ -55,7 +56,9 @@ const sections: LegalSection[] = [
       <>
         <p>
           The business you messaged controls your conversation data. Contact them directly to access or delete it. You
-          can also reply <strong>STOP</strong> in WhatsApp to stop marketing messages from that business.
+          can also reply <strong>STOP</strong>, <strong>BAND KARO</strong> or <strong lang="ur">بند کرو</strong> in WhatsApp to
+          stop marketing messages from that business — Talkzi records the opt-out automatically, and replying{' '}
+          <strong>START</strong> subscribes you again.
         </p>
         <p>
           If you can’t reach the business, email <a href={`mailto:${emails.privacy}`}>{emails.privacy}</a> with the

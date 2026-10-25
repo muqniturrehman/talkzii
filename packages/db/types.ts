@@ -2543,6 +2543,23 @@ export type Database = {
         }
         Returns: number
       }
+      purge_platform_logs: {
+        Args: {
+          p_before: string
+        }
+        Returns: Json
+      }
+      purge_workspace_messages: {
+        Args: {
+          p_workspace_id: string
+          p_before: string
+          p_limit?: number
+        }
+        Returns: {
+          deleted_id: string
+          storage_path: string
+        }[]
+      }
       recipient_status_rank: {
         Args: {
           s: Database["public"]["Enums"]["recipient_status"]

@@ -53,6 +53,8 @@ export interface EmbeddedSignupInput {
   wabaId?: string;
   phoneNumberId?: string;
   pin?: string;
+  /** App-scoped Facebook user id (Meta data deletion callbacks reference it). */
+  fbUserId?: string;
 }
 
 export interface EmbeddedSignupResult {
@@ -180,7 +182,7 @@ export async function completeEmbeddedSignup(input: EmbeddedSignupInput, deps: E
     webhook_subscribed: webhookSubscribed,
     status: 'connected',
     connected_by: input.userId,
-    metadata: {},
+    metadata: input.fbUserId ? { fb_user_id: input.fbUserId } : {},
   });
 
   const hasDefault = await deps.store.hasDefaultPhone(input.workspaceId);

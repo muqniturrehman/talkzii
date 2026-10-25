@@ -97,7 +97,7 @@ export function EmbeddedSignup({
   }, [appId, sdkVersion]);
 
   const exchange = React.useCallback(
-    async (code: string) => {
+    async (code: string, fbUserId?: string) => {
       setStatus({ kind: 'exchanging' });
       // The session-info message can land a moment after the login callback.
       for (let i = 0; i < 20 && !sessionInfo.current; i += 1) await new Promise((r) => setTimeout(r, 150));
@@ -108,6 +108,7 @@ export function EmbeddedSignup({
             wabaId: sessionInfo.current?.wabaId,
             phoneNumberId: sessionInfo.current?.phoneNumberId,
             pin: /^\d{6}$/.test(pin) ? pin : undefined,
+            fbUserId: fbUserId || undefined,
           },
         });
         setStatus({ kind: 'done', numbers: result.phoneNumbers.map((p) => p.displayPhoneNumber), warnings: result.warnings });
@@ -126,7 +127,7 @@ export function EmbeddedSignup({
     window.FB.login(
       (response) => {
         const code = response.authResponse?.code;
-        if (code) void exchange(code);
+        if (code) void exchange(code, response.authResponse?.userID);
         else setStatus((s) => (s.kind === 'popup' ? { kind: 'cancelled' } : s));
       },
       {

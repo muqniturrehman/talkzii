@@ -40,7 +40,7 @@ export function DeletionStatusLookup() {
           id="deletion-code"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          placeholder="e.g. DEL-7K2M9Q"
+          placeholder="e.g. DEL-7K2M9QX4PB"
           required
           autoComplete="off"
         />

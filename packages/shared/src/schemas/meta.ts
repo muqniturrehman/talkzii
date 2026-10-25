@@ -10,6 +10,8 @@ export const exchangeCodeSchema = z.object({
   phoneNumberId: metaId.optional(),
   /** Two-step verification PIN used to register the number on the Cloud API. */
   pin: pin.optional(),
+  /** App-scoped Facebook user id from FB.login, to honour Meta data deletion callbacks. */
+  fbUserId: metaId.optional(),
 });
 export type ExchangeCodeInput = z.infer<typeof exchangeCodeSchema>;
 

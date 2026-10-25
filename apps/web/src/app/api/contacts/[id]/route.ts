@@ -2,7 +2,7 @@ import { updateContactSchema } from '@talkzi/shared';
 import type { Json, TablesUpdate } from '@talkzi/db';
 import { ApiError } from '@/lib/api/errors';
 import { createHandler, requireUuid, unwrap } from '@/lib/api/handler';
-import { audit } from '@/lib/audit';
+import { eraseContact } from '@/lib/compliance/deletion';
 import { getContactDetail } from '@/lib/contacts/service';
 
 export const GET = createHandler({ role: 'viewer' }, async ({ supabase, params }) => getContactDetail(supabase, requireUuid(params.id, 'Contact')));
@@ -24,11 +24,10 @@ export const PATCH = createHandler({ role: 'agent', body: updateContactSchema },
   return getContactDetail(supabase, id);
 });
 
-/** Deletes the contact with its conversations, messages and notes (admin). */
-export const DELETE = createHandler({ role: 'admin' }, async ({ supabase, params, workspace, user, req }) => {
-  const id = requireUuid(params.id, 'Contact');
-  const rows = unwrap(await supabase.from('contacts').delete().eq('id', id).select('id, wa_id'));
-  if (rows.length === 0) throw ApiError.notFound('Contact not found.');
-  await audit({ workspaceId: workspace.id, actorId: user.id, action: 'contact.deleted', targetType: 'contact', targetId: id, req });
-  return { id };
-});
+/**
+ * Erases the contact (right to erasure): media files, then the contact with
+ * its conversations, messages and notes. Returns a confirmation code (admin).
+ */
+export const DELETE = createHandler({ role: 'admin' }, async ({ admin, params, workspace, user }) =>
+  eraseContact(admin(), { workspaceId: workspace.id, contactId: requireUuid(params.id, 'Contact'), actorId: user.id }),
+);
