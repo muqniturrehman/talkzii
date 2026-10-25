@@ -1,24 +1,28 @@
 import type { Metadata } from 'next';
-import { parseBranding, planHasFeature } from '@talkzi/shared';
 import { Sidebar } from '@/components/app/sidebar';
 import { Topbar } from '@/components/app/topbar';
 import { AppProviders } from '@/components/providers/app-providers';
-import { requireWorkspace } from '@/lib/auth/session';
+import { getSession, requireWorkspace } from '@/lib/auth/session';
 import { brandingStyle } from '@/lib/branding';
+import { workspaceBranding } from '@/lib/branding-server';
 
-export const metadata: Metadata = {
-  title: { default: 'Dashboard', template: '%s · Talkzi' },
-  robots: { index: false, follow: false },
-};
+/** Browser tab title and favicon follow the workspace's (or its agency's) brand. */
+export async function generateMetadata(): Promise<Metadata> {
+  const session = await getSession();
+  const branding = session?.workspace ? await workspaceBranding(session.workspace.id) : {};
+  return {
+    title: { default: 'Dashboard', template: `%s · ${branding.brandName ?? 'Talkzi'}` },
+    robots: { index: false, follow: false },
+    ...(branding.faviconUrl ? { icons: { icon: branding.faviconUrl } } : {}),
+  };
+}
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await requireWorkspace('/app');
   const { workspace, profile, user, memberships } = session;
 
-  // White-label theming is an Agency feature (child workspaces inherit it).
-  const branding = planHasFeature(workspace.plan, 'white_label') || workspace.parent_workspace_id
-    ? parseBranding(workspace.branding)
-    : {};
+  // White-label theming is an Agency feature; client workspaces inherit the agency's brand.
+  const branding = await workspaceBranding(workspace.id);
   const css = brandingStyle(branding);
 
   return (

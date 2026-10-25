@@ -1,10 +1,12 @@
-import type { Branding } from '@talkzi/shared';
+import { readableTextOn, type Branding } from '@talkzi/shared';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
 /**
  * CSS custom-property overrides for a white-labelled workspace. Values are
  * validated hex colours, so the output is safe to inline in a <style> tag.
+ * Foreground tokens follow the brand colours so button text stays readable
+ * (e.g. dark text on a yellow brand).
  */
 export function brandingStyle(branding: Branding): string | null {
   const primary = branding.primaryColor && HEX.test(branding.primaryColor) ? branding.primaryColor : null;
@@ -12,8 +14,10 @@ export function brandingStyle(branding: Branding): string | null {
   if (!primary && !accent) return null;
 
   const vars = [
-    primary ? `--primary:${primary};--ring:${primary};--gradient-from:${primary};--gradient-via:${primary};--gradient-to:${primary};` : '',
-    accent ? `--accent:${accent};` : '',
+    primary
+      ? `--primary:${primary};--primary-foreground:${readableTextOn(primary)};--ring:${primary};--gradient-from:${accent ?? primary};--gradient-via:${primary};--gradient-to:${primary};`
+      : '',
+    accent ? `--accent:${accent};--accent-foreground:${readableTextOn(accent)};` : '',
   ].join('');
   return `:root,.dark{${vars}}`;
 }

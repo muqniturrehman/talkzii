@@ -15,5 +15,7 @@ export * from './schemas/broadcasts';
 export * from './schemas/chatbots';
 export * from './schemas/platform';
 export * from './schemas/billing';
+export * from './schemas/agency';
 export * from './pricing';
 export * from './phone';
+export * from './color';

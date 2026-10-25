@@ -18,3 +18,17 @@ describe('plans & Stripe lookup keys', () => {
     expect(yearlySavingPercent('free', 'USD')).toBe(0);
   });
 });
+
+describe('white-label helpers', () => {
+  it('computes WCAG contrast and picks readable text', async () => {
+    const { contrastRatio, readableTextOn, customDomainSchema } = await import('../src');
+    expect(contrastRatio('#ffffff', '#000000')).toBeCloseTo(21, 0);
+    expect(contrastRatio('#6d28d9', '#ffffff')).toBeGreaterThan(4.5);
+    expect(readableTextOn('#facc15')).toBe('#0a0a0f');
+    expect(readableTextOn('#6d28d9')).toBe('#ffffff');
+    expect(customDomainSchema.parse(' App.Agency.COM ')).toBe('app.agency.com');
+    for (const bad of ['agency', 'https://app.agency.com', 'app.agency.com/login', '-bad.agency.com', 'app..agency.com']) {
+      expect(customDomainSchema.safeParse(bad).success, bad).toBe(false);
+    }
+  });
+});

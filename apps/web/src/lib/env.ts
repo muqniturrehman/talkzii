@@ -35,6 +35,10 @@ const schema = z.object({
   EASYPAISA_STORE_ID: optional,
   EASYPAISA_HASH_KEY: optional,
   EASYPAISA_CHECKOUT_URL: optional,
+  CUSTOM_DOMAIN_CNAME_TARGET: optional,
+  VERCEL_API_TOKEN: optional,
+  VERCEL_PROJECT_ID: optional,
+  VERCEL_TEAM_ID: optional,
   RESEND_API_KEY: optional,
   EMAIL_FROM: optional,
   INTERNAL_API_SECRET: optional,
@@ -71,6 +75,7 @@ export const configured = {
   resend: () => Boolean(env().RESEND_API_KEY),
   jazzcash: () => Boolean(env().JAZZCASH_MERCHANT_ID && env().JAZZCASH_INTEGRITY_SALT),
   easypaisa: () => Boolean(env().EASYPAISA_STORE_ID && env().EASYPAISA_HASH_KEY),
+  vercelDomains: () => Boolean(env().VERCEL_API_TOKEN && env().VERCEL_PROJECT_ID),
 } as const;
 
 export const isProduction = () => env().NODE_ENV === 'production';

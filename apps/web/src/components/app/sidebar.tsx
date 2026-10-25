@@ -60,6 +60,9 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </nav>
       <UserMenu />
+      {workspace.branding.brandName && !workspace.branding.hidePoweredBy ? (
+        <p className="px-3 text-center text-[11px] text-muted-foreground/80">Powered by Talkzi</p>
+      ) : null}
     </div>
   );
 }

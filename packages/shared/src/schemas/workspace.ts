@@ -1,11 +1,14 @@
 import { z } from 'zod';
 import { hexColorSchema } from './common';
 
+/** http(s) only, so a stored URL can never be a javascript: or data: payload. */
+const assetUrl = z.url({ protocol: /^https?$/, message: 'Use an https:// URL' }).max(2000);
+
 /** Agency white-label branding stored in workspaces.branding (jsonb). */
 export const brandingSchema = z.object({
   brandName: z.string().trim().min(1).max(60).optional(),
-  logoUrl: z.url().optional(),
-  faviconUrl: z.url().optional(),
+  logoUrl: assetUrl.optional(),
+  faviconUrl: assetUrl.optional(),
   primaryColor: hexColorSchema.optional(),
   accentColor: hexColorSchema.optional(),
   supportEmail: z.email().optional(),

@@ -742,6 +742,51 @@ describe('billing', () => {
   });
 });
 
+describe('agency workspaces', () => {
+  it('creates client workspaces that inherit and follow the agency plan', async () => {
+    const owner = await createAuthUser(db, `${unique('agency')}@test.dev`);
+    const agent = await createAuthUser(db, `${unique('agencyagent')}@test.dev`);
+    const agency = await createWorkspaceAs(owner, 'Karachi Growth Agency');
+    await addMember(agency, agent.id, 'agent');
+    await db.query(`update public.workspaces set plan = 'agency' where id = $1`, [agency]);
+
+    const client = await asServiceRole(db, async (tx) =>
+      (await tx.query<{ id: string; plan: string; parent_workspace_id: string }>(
+        `select id, plan::text, parent_workspace_id from public.create_client_workspace($1, $2, 'Bano Bazaar')`,
+        [agency, owner.id],
+      )).rows[0]!,
+    );
+    expect(client).toMatchObject({ plan: 'agency', parent_workspace_id: agency });
+    const membership = await db.query<{ role: string }>('select role from public.workspace_members where workspace_id = $1 and user_id = $2', [client.id, owner.id]);
+    expect(membership.rows[0]?.role).toBe('owner');
+
+    // Agents can't create clients; clients can't have clients; users can't call it directly.
+    await expect(asServiceRole(db, (tx) => tx.query(`select public.create_client_workspace($1, $2, 'Nope')`, [agency, agent.id]))).rejects.toThrow(/forbidden/);
+    await expect(asServiceRole(db, (tx) => tx.query(`select public.create_client_workspace($1, $2, 'Nested')`, [client.id, owner.id]))).rejects.toThrow(/nested/);
+    await expect(asUser(db, owner, (tx) => tx.query(`select public.create_client_workspace($1, $2, 'Direct')`, [agency, owner.id]))).rejects.toThrow(/permission denied/);
+
+    // Plan changes on the agency flow to its clients; deleting the agency drops them to Free.
+    await db.query(`update public.workspaces set plan = 'pro' where id = $1`, [agency]);
+    const followed = await db.query<{ plan: string }>('select plan::text from public.workspaces where id = $1', [client.id]);
+    expect(followed.rows[0]?.plan).toBe('pro');
+    await db.query('delete from public.workspaces where id = $1', [agency]);
+    const orphan = await db.query<{ plan: string; parent_workspace_id: string | null }>('select plan::text, parent_workspace_id from public.workspaces where id = $1', [client.id]);
+    expect(orphan.rows[0]).toEqual({ plan: 'free', parent_workspace_id: null });
+  });
+
+  it('lets admins edit presentation columns but never plan, parent or domain verification', async () => {
+    const owner = await createAuthUser(db, `${unique('cols')}@test.dev`);
+    const ws = await createWorkspaceAs(owner, 'Columns Co');
+    const renamed = await asUser(db, owner, (tx) =>
+      tx.query(`update public.workspaces set name = 'Columns & Co', branding = '{"brandName":"Columns"}' where id = $1`, [ws]).then((r) => r.affectedRows),
+    );
+    expect(renamed).toBe(1);
+    for (const column of [`plan = 'agency'`, `parent_workspace_id = null`, `custom_domain_verified_at = now()`, `owner_id = null`]) {
+      await expect(asUser(db, owner, (tx) => tx.query(`update public.workspaces set ${column} where id = $1`, [ws]))).rejects.toThrow(/permission denied/);
+    }
+  });
+});
+
 describe('seed data', () => {
   it('fits the schema and powers the analytics functions', async () => {
     const owner = await createAuthUser(db, `${unique('seed-owner')}@test.dev`);

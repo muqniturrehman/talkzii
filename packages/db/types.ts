@@ -2377,6 +2377,38 @@ export type Database = {
         }
         Returns: boolean
       }
+      create_client_workspace: {
+        Args: {
+          p_parent_id: string
+          p_user_id: string
+          p_name: string
+          p_timezone?: string
+          p_default_country_code?: string
+        }
+        Returns: {
+          branding: Json
+          created_at: string
+          custom_domain: string | null
+          custom_domain_verified_at: string | null
+          default_country_code: string
+          id: string
+          logo_url: string | null
+          name: string
+          owner_id: string | null
+          parent_workspace_id: string | null
+          plan: Database["public"]["Enums"]["plan_tier"]
+          settings: Json
+          slug: string
+          timezone: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "workspaces"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_workspace: {
         Args: {
           p_name: string

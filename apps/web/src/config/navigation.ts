@@ -12,7 +12,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
-import type { WorkspaceRole } from '@talkzi/shared';
+import type { PlanFeature, WorkspaceRole } from '@talkzi/shared';
 
 export interface NavItem {
   href: string;
@@ -43,11 +43,22 @@ export const workspaceNav: NavItem[] = [
   { href: '/app/settings/profile', label: 'Settings', icon: Settings, match: '/app/settings' },
 ];
 
-export const settingsNav: { href: string; label: string; role?: WorkspaceRole }[] = [
+export interface SettingsNavItem {
+  href: string;
+  label: string;
+  role?: WorkspaceRole;
+  /** Only shown when the plan includes this feature. */
+  feature?: PlanFeature;
+  /** Hidden inside an agency's client workspaces. */
+  agencyOnly?: boolean;
+}
+
+export const settingsNav: SettingsNavItem[] = [
   { href: '/app/settings/profile', label: 'Profile' },
   { href: '/app/settings/general', label: 'General', role: 'admin' },
   { href: '/app/settings/ai', label: 'AI & knowledge', role: 'admin' },
   { href: '/app/settings/branding', label: 'Branding', role: 'admin' },
+  { href: '/app/settings/clients', label: 'Clients', role: 'admin', feature: 'sub_accounts', agencyOnly: true },
   { href: '/app/settings/billing', label: 'Billing', role: 'admin' },
   { href: '/app/settings/compliance', label: 'Compliance', role: 'admin' },
 ];

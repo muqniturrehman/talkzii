@@ -1,5 +1,6 @@
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { hasMinRole, isWorkspaceRole, requiredRoleForPath } from '@talkzi/shared';
+import { isCustomDomainHost } from '@/lib/hosts';
 import { redirectPreservingCookies, updateSession } from '@/lib/supabase/proxy';
 
 const AUTH_PAGES = new Set(['/login', '/signup', '/forgot-password']);
@@ -11,9 +12,19 @@ const AUTH_PAGES = new Set(['/login', '/signup', '/forgot-password']);
  *  - bounces signed-in users away from auth pages
  *  - fast-path role gating from the JWT `workspace_role` claim
  *    (pages, APIs and RLS re-check with live membership)
+ *  - sends `/` on an agency custom domain to the branded sign-in page
  */
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  // An agency's custom domain is a sign-in entry point, not Talkzi's marketing site.
+  if (pathname === '/') {
+    if (!isCustomDomainHost(request.headers.get('host'))) return NextResponse.next();
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
   const { response, claims } = await updateSession(request);
 
   const isApp = pathname === '/app' || pathname.startsWith('/app/');
@@ -51,6 +62,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/',
     '/app/:path*',
     '/onboarding/:path*',
     '/login',
