@@ -1,12 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { incomingActionSchema, orderNotificationSchema, planHasFeature, publicContactUpsertSchema, publicSendMessageSchema } from '@talkzi/shared';
+import { incomingActionSchema, isSignedProvider, orderNotificationSchema, planHasFeature, publicContactUpsertSchema, publicSendMessageSchema } from '@talkzi/shared';
 import { ApiError, errorResponse } from '@/lib/api/errors';
 import { decryptSecret, safeEqual } from '@/lib/crypto';
 import { logger } from '@/lib/logger';
 import { verifySignature } from '@/lib/outbound/signature';
-import { isStoreProvider } from '@/lib/public-api/integration-rows';
-import { notificationMessage, verifyBase64Hmac } from '@/lib/public-api/integrations';
+import { notificationMessage, verifySignedEvent } from '@/lib/public-api/integrations';
 import { sendPublicMessage, upsertContactByPhone } from '@/lib/public-api/service';
 import { rateLimit, rateLimitHeaders, RATE_LIMITS } from '@/lib/rate-limit';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
@@ -23,9 +22,10 @@ function parse<S extends z.ZodType>(schema: S, input: unknown): z.output<S> {
 
 /**
  * Incoming webhooks from connected apps:
- *  - Zapier / n8n / custom: token (X-Talkzi-Token header or ?token=) or an
- *    X-Talkzi-Signature HMAC; body { action: 'send_message' | 'upsert_contact', … }
- *  - Shopify / WooCommerce: store HMAC; mapped topics send an approved template.
+ *  - Zapier / n8n / Google Sheets / custom: token (X-Talkzi-Token header or
+ *    ?token=) or an X-Talkzi-Signature HMAC; body { action: 'send_message' | 'upsert_contact', … }
+ *  - Shopify / WooCommerce / Stripe: the provider's own signature; mapped
+ *    topics send an approved template.
  */
 export async function POST(req: NextRequest, segment: { params: Promise<{ integrationId: string }> }) {
   const { integrationId } = await segment.params;
@@ -50,19 +50,19 @@ export async function POST(req: NextRequest, segment: { params: Promise<{ integr
     const workspace = integration.workspace;
     let result: unknown;
 
-    if (isStoreProvider(integration.provider)) {
-      const signature = integration.provider === 'shopify' ? req.headers.get('x-shopify-hmac-sha256') : req.headers.get('x-wc-webhook-signature');
+    if (isSignedProvider(integration.provider)) {
       // WooCommerce pings new webhooks with a form body and no signature.
-      if (integration.provider === 'woocommerce' && !signature && raw.startsWith('webhook_id=')) return NextResponse.json({ data: { ok: true } });
-      if (!integration.incoming_secret_encrypted) throw ApiError.unauthorized('Add the store’s webhook signing secret in Talkzi → Integrations → Apps first.');
-      if (!verifyBase64Hmac(raw, signature, decryptSecret(integration.incoming_secret_encrypted))) throw ApiError.unauthorized('Invalid webhook signature.');
-      const topic = (integration.provider === 'shopify' ? req.headers.get('x-shopify-topic') : req.headers.get('x-wc-webhook-topic')) ?? '';
+      if (integration.provider === 'woocommerce' && !req.headers.get('x-wc-webhook-signature') && raw.startsWith('webhook_id=')) {
+        return NextResponse.json({ data: { ok: true } });
+      }
+      if (!integration.incoming_secret_encrypted) throw ApiError.unauthorized('Add the webhook signing secret in Talkzi → Integrations → Apps first.');
+      const { topic, payload } = verifySignedEvent(integration.provider, raw, req.headers, decryptSecret(integration.incoming_secret_encrypted));
       const notifications = z.array(orderNotificationSchema).catch([]).parse((integration.config as { notifications?: unknown })?.notifications);
       const notification = notifications.find((n) => n.topic === topic);
       if (!notification) {
         result = { ok: true, ignored: `No message configured for “${topic || 'unknown'}”.` };
       } else {
-        const message = notificationMessage(notification, JSON.parse(raw || '{}'));
+        const message = notificationMessage(notification, payload);
         result = message ? await sendPublicMessage(admin, workspace, parse(publicSendMessageSchema, message), log) : { ok: true, ignored: 'No phone number in the payload.' };
       }
     } else {

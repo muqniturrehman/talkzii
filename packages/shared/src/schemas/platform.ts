@@ -129,10 +129,18 @@ export const publicListQuerySchema = z.object({
 // Integrations (incoming webhooks from Zapier, n8n, Shopify, WooCommerce…)
 // ---------------------------------------------------------------------------
 
-export const INTEGRATION_PROVIDERS = ['zapier', 'n8n', 'shopify', 'woocommerce', 'custom'] as const;
+export const INTEGRATION_PROVIDERS = ['zapier', 'n8n', 'google_sheets', 'shopify', 'woocommerce', 'stripe', 'custom'] as const;
 export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number];
 
-/** "Send this approved template when this store event happens." */
+/** Providers that sign their own webhooks (verified with their secret) and map events to templates. */
+export const SIGNED_INTEGRATION_PROVIDERS = ['shopify', 'woocommerce', 'stripe'] as const;
+export type SignedIntegrationProvider = (typeof SIGNED_INTEGRATION_PROVIDERS)[number];
+
+export function isSignedProvider(provider: string): provider is SignedIntegrationProvider {
+  return (SIGNED_INTEGRATION_PROVIDERS as readonly string[]).includes(provider);
+}
+
+/** "Send this approved template when this store / payment event happens." */
 export const orderNotificationSchema = z.object({
   topic: z.string().trim().min(1).max(80),
   templateName: z.string().trim().min(1).max(512),
@@ -147,11 +155,11 @@ export type OrderNotification = z.infer<typeof orderNotificationSchema>;
 export const createIntegrationSchema = z.object({
   provider: z.enum(INTEGRATION_PROVIDERS),
   name: z.string().trim().min(1).max(80),
-  /** Shopify/WooCommerce webhook signing secret (from the store's settings). */
+  /** Shopify / WooCommerce / Stripe webhook signing secret; can also be added later. */
   signingSecret: z.string().trim().min(8).max(500).optional(),
   notifications: z.array(orderNotificationSchema).max(10).default([]),
 });
 export type CreateIntegrationInput = z.infer<typeof createIntegrationSchema>;
 
-/** Envelope for the generic incoming webhook (Zapier, n8n, custom); the rest is validated per action. */
+/** Envelope for the generic incoming webhook (Zapier, n8n, Google Sheets, custom); the rest is validated per action. */
 export const incomingActionSchema = z.looseObject({ action: z.enum(['send_message', 'upsert_contact']) });

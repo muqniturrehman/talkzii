@@ -4,9 +4,6 @@ import type { Enums, Json } from '@talkzi/db';
 /** The encrypted secret is selected only to report whether one is set; it never leaves the server. */
 export const INTEGRATION_COLUMNS = 'id, provider, name, status, config, last_event_at, created_at, incoming_secret_encrypted';
 
-export function isStoreProvider(provider: string): provider is 'shopify' | 'woocommerce' {
-  return provider === 'shopify' || provider === 'woocommerce';
-}
 
 export interface IntegrationResponse {
   id: string;

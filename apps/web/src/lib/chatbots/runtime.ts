@@ -41,7 +41,7 @@ async function groundedAnswer(admin: TypedSupabaseClient, workspace: Workspace, 
 /** Actions that really message the customer (sender_type 'bot'). */
 export function liveActions(admin: TypedSupabaseClient, ctx: { workspace: Workspace; conversationId: string; contactId: string }, log: Logger): EngineActions {
   const deps = messagingDeps(admin);
-  const send = (input: SendMessageInput) => sendMessage(input, { workspaceId: ctx.workspace.id, senderId: null, senderType: 'bot' }, deps);
+  const send = (input: SendMessageInput) => sendMessage(input, { workspaceId: ctx.workspace.id, senderId: null, senderType: 'bot', plan: ctx.workspace.plan }, deps);
   return {
     async sendText(text) {
       await send({ type: 'text', conversationId: ctx.conversationId, text: clip(text, 4096) });

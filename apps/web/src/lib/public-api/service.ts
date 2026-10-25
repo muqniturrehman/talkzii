@@ -105,7 +105,7 @@ export async function sendPublicMessage(admin: TypedSupabaseClient, workspace: P
   if (!conversation) throw new ApiError(500, 'INTERNAL_ERROR', 'Could not open the conversation.');
 
   const deps = messagingDeps(admin);
-  const ctx = { workspaceId: workspace.id, senderId: null, senderType: 'api' as const };
+  const ctx = { workspaceId: workspace.id, senderId: null, senderType: 'api' as const, plan: workspace.plan };
   if (input.type === 'text') {
     const sent = await sendMessage({ type: 'text', conversationId: conversation.id, text: input.text }, ctx, deps);
     return { id: sent.id, wamid: sent.wamid, status: sent.status, conversation_id: conversation.id, contact_id: contact.id };

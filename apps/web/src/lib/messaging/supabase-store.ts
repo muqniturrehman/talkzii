@@ -1,6 +1,7 @@
 import 'server-only';
 import type { Json } from '@talkzi/db';
 import { ApiError } from '@/lib/api/errors';
+import { monthlyUsage, USAGE_METRICS } from '@/lib/billing/usage';
 import { getPhoneContext } from '@/lib/meta/whatsapp';
 import type { TypedSupabaseClient } from '@/lib/supabase/types';
 import type { MessagingStore, OutboundRecord, SendDeps } from './send';
@@ -61,7 +62,7 @@ export function createSupabaseMessagingStore(admin: TypedSupabaseClient): Messag
         .update({ wamid, status: 'sent', sent_at: new Date().toISOString(), error_code: null, error_message: null })
         .eq('id', messageId);
       if (error) throw new ApiError(500, 'INTERNAL_ERROR', error.message);
-      await admin.rpc('increment_usage', { p_workspace_id: workspaceId, p_metric: 'messages_sent' });
+      await admin.rpc('increment_usage', { p_workspace_id: workspaceId, p_metric: USAGE_METRICS.messagesSent });
     },
 
     async markFailed(messageId, failure) {
@@ -75,6 +76,8 @@ export function createSupabaseMessagingStore(admin: TypedSupabaseClient): Messag
         })
         .eq('id', messageId);
     },
+
+    messagesSentThisMonth: (workspaceId) => monthlyUsage(admin, workspaceId, USAGE_METRICS.messagesSent),
   };
 }
 

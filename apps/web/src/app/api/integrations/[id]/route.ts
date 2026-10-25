@@ -1,16 +1,16 @@
 import { z } from 'zod';
-import { orderNotificationSchema } from '@talkzi/shared';
+import { isSignedProvider, orderNotificationSchema } from '@talkzi/shared';
 import type { Json, TablesUpdate } from '@talkzi/db';
 import { ApiError } from '@/lib/api/errors';
 import { createHandler, requireUuid, unwrap } from '@/lib/api/handler';
 import { audit } from '@/lib/audit';
 import { encryptSecret, randomToken } from '@/lib/crypto';
 import { appUrl } from '@/lib/env';
-import { INTEGRATION_COLUMNS, isStoreProvider, toIntegrationResponse } from '@/lib/public-api/integration-rows';
+import { INTEGRATION_COLUMNS, toIntegrationResponse } from '@/lib/public-api/integration-rows';
 
 /**
- * Renames, connects/disconnects, edits store notifications, replaces the
- * store signing secret, or rotates the token of a generic integration
+ * Renames, connects/disconnects, edits event → template mappings, replaces
+ * the provider signing secret, or rotates the token of a generic integration
  * (the new token is returned once).
  */
 export const PATCH = createHandler(
@@ -30,9 +30,9 @@ export const PATCH = createHandler(
     const id = requireUuid(params.id, 'Integration');
     const current = unwrap(await supabase.from('integrations').select('id, provider').eq('id', id).maybeSingle());
     if (!current) throw ApiError.notFound('Integration not found.');
-    const store = isStoreProvider(current.provider);
-    if (body.signingSecret && !store) throw ApiError.badRequest('Only Shopify and WooCommerce connections use a signing secret.');
-    if (body.rotateToken && store) throw ApiError.badRequest('Store connections are verified with the store’s signing secret, not a token.');
+    const signed = isSignedProvider(current.provider);
+    if (body.signingSecret && !signed) throw ApiError.badRequest('Only Shopify, WooCommerce and Stripe connections use a signing secret.');
+    if (body.rotateToken && signed) throw ApiError.badRequest('This connection is verified with the provider’s signing secret, not a token.');
 
     const token = body.rotateToken ? `tzin_${randomToken(24)}` : null;
     const secret = body.signingSecret ?? token;

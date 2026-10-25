@@ -7,7 +7,7 @@ import {
   type MediaRef,
   type MessagePayload,
 } from '@talkzi/whatsapp';
-import type { SendMessageInput } from '@talkzi/shared';
+import { planLimit, type PlanId, type SendMessageInput } from '@talkzi/shared';
 import type { MessageType, SenderType } from '@talkzi/db';
 import { ApiError } from '@/lib/api/errors';
 import type { WhatsAppApi } from '@/lib/meta/whatsapp';
@@ -64,6 +64,8 @@ export interface MessagingStore {
   recordOutbound(input: RecordOutboundInput): Promise<OutboundRecord>;
   markSent(messageId: string, wamid: string, workspaceId: string): Promise<void>;
   markFailed(messageId: string, error: { code: number | null; message: string }): Promise<void>;
+  /** Outbound messages counted against the plan this month (messages_per_month). */
+  messagesSentThisMonth?(workspaceId: string): Promise<number>;
 }
 
 export interface SendDeps {
@@ -76,6 +78,8 @@ export interface SendContext {
   workspaceId: string;
   senderId: string | null;
   senderType: SenderType;
+  /** When set, the plan's monthly message allowance is enforced. */
+  plan?: PlanId;
 }
 
 export interface SentMessage {
@@ -230,6 +234,14 @@ export async function sendMessage(input: SendMessageInput, ctx: SendContext, dep
   const now = deps.now?.() ?? new Date();
   const conversation = await deps.store.getConversation(ctx.workspaceId, input.conversationId);
   if (!conversation) throw ApiError.notFound('Conversation not found.');
+  if (ctx.plan && deps.store.messagesSentThisMonth) {
+    const limit = planLimit(ctx.plan, 'messages_per_month');
+    if (Number.isFinite(limit) && (await deps.store.messagesSentThisMonth(ctx.workspaceId)) >= limit) {
+      throw new ApiError(403, 'PLAN_LIMIT', `You've sent all ${limit.toLocaleString()} messages included in your plan this month. Upgrade to keep sending.`, {
+        limit: 'messages_per_month',
+      });
+    }
+  }
 
   const prepared = await prepare(input, conversation, ctx, deps, now);
   const replyToWamid = input.replyToMessageId ? await deps.store.getMessageWamid(ctx.workspaceId, input.replyToMessageId) : null;

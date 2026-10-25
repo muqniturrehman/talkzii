@@ -166,7 +166,28 @@ export function formatPrice(amount: number, currency: Currency): string {
     : `$${amount.toLocaleString('en-US')}`;
 }
 
+export type PaidPlanId = Exclude<PlanId, 'free'>;
+
 /** Stripe price lookup keys, e.g. talkzi_pro_month_usd. Create these in Stripe. */
-export function stripeLookupKey(plan: Exclude<PlanId, 'free'>, interval: BillingInterval, currency: Currency): string {
+export function stripeLookupKey(plan: PaidPlanId, interval: BillingInterval, currency: Currency): string {
   return `talkzi_${plan}_${interval}_${currency.toLowerCase()}`;
+}
+
+/** Inverse of stripeLookupKey (null for prices that aren't Talkzi plans). */
+export function parseLookupKey(key: string | null | undefined): { plan: PaidPlanId; interval: BillingInterval; currency: Currency } | null {
+  const match = /^talkzi_(pro|agency)_(month|year)_(usd|pkr)$/.exec(key ?? '');
+  if (!match) return null;
+  return { plan: match[1] as PaidPlanId, interval: match[2] as BillingInterval, currency: match[3]!.toUpperCase() as Currency };
+}
+
+/** Amount charged per billing period: one month, or twelve discounted months for yearly. */
+export function periodPrice(plan: PlanId, interval: BillingInterval, currency: Currency): number {
+  const price = PLANS[plan].price[currency];
+  return interval === 'year' ? price.year * 12 : price.month;
+}
+
+/** Whole-percent saving of yearly over monthly billing (0 for Free). */
+export function yearlySavingPercent(plan: PlanId, currency: Currency): number {
+  const { month, year } = PLANS[plan].price[currency];
+  return month > 0 ? Math.round((1 - year / month) * 100) : 0;
 }

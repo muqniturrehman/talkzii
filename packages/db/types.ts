@@ -258,6 +258,62 @@ export type Database = {
           },
         ]
       }
+      billing_payments: {
+        Row: {
+          amount: number
+          billing_interval: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          paid_at: string | null
+          plan: Database["public"]["Enums"]["plan_tier"]
+          provider: string
+          provider_response: Json
+          reference: string
+          status: string
+          workspace_id: string
+        }
+        Insert: {
+          amount: number
+          billing_interval: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          paid_at?: string | null
+          plan: Database["public"]["Enums"]["plan_tier"]
+          provider: string
+          provider_response?: Json
+          reference: string
+          status?: string
+          workspace_id: string
+        }
+        Update: {
+          amount?: number
+          billing_interval?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          paid_at?: string | null
+          plan?: Database["public"]["Enums"]["plan_tier"]
+          provider?: string
+          provider_response?: Json
+          reference?: string
+          status?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_payments_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_subscriptions: {
         Row: {
           billing_interval: string | null
@@ -1826,6 +1882,7 @@ export type Database = {
           created_at: string
           error: string | null
           event_type: string | null
+          external_id: string | null
           id: string
           payload: Json
           processed_at: string | null
@@ -1839,6 +1896,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           event_type?: string | null
+          external_id?: string | null
           id?: string
           payload: Json
           processed_at?: string | null
@@ -1852,6 +1910,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           event_type?: string | null
+          external_id?: string | null
           id?: string
           payload?: Json
           processed_at?: string | null
@@ -2130,6 +2189,37 @@ export type Database = {
         }
         Returns: string
       }
+      activate_prepaid_plan: {
+        Args: {
+          p_payment_id: string
+          p_response?: Json
+        }
+        Returns: {
+          billing_interval: string | null
+          cancel_at_period_end: boolean
+          created_at: string
+          currency: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          metadata: Json
+          plan: Database["public"]["Enums"]["plan_tier"]
+          provider: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id: string | null
+          stripe_price_id: string | null
+          stripe_subscription_id: string | null
+          trial_ends_at: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "billing_subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       analytics_cost_by_category: {
         Args: {
           p_from: string
@@ -2343,6 +2433,10 @@ export type Database = {
         }
         Returns: Json
       }
+      expire_prepaid_subscriptions: {
+        Args: never
+        Returns: string[]
+      }
       has_workspace_role: {
         Args: {
           required: Database["public"]["Enums"]["workspace_role"]
@@ -2462,6 +2556,12 @@ export type Database = {
       role_rank: {
         Args: {
           r: Database["public"]["Enums"]["workspace_role"]
+        }
+        Returns: number
+      }
+      rollup_usage: {
+        Args: {
+          p_period?: string
         }
         Returns: number
       }

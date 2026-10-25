@@ -657,6 +657,91 @@ describe('broadcast audiences', () => {
   });
 });
 
+describe('billing', () => {
+  async function createPayment(workspaceId: string, plan: string, interval: string, provider = 'jazzcash') {
+    const res = await db.query<{ id: string }>(
+      `insert into public.billing_payments (workspace_id, provider, reference, plan, billing_interval, amount)
+       values ($1, $2, $3, $4, $5, 7999) returning id`,
+      [workspaceId, provider, unique('T'), plan, interval],
+    );
+    return res.rows[0]!.id;
+  }
+
+  it('activates, extends and expires prepaid wallet plans idempotently', async () => {
+    const owner = await createAuthUser(db, `${unique('payer')}@test.dev`);
+    const agent = await createAuthUser(db, `${unique('payagent')}@test.dev`);
+    const ws = await createWorkspaceAs(owner, 'Prepaid Co');
+    await addMember(ws, agent.id, 'agent');
+
+    const first = await createPayment(ws, 'pro', 'month');
+    const activated = await asServiceRole(db, async (tx) =>
+      (await tx.query<{ plan: string; status: string; months: number }>(
+        `select plan::text, status::text, round(extract(epoch from current_period_end - now()) / 86400 / 30)::int as months
+         from public.activate_prepaid_plan($1, '{"pp_ResponseCode":"000"}')`,
+        [first],
+      )).rows[0]!,
+    );
+    expect(activated).toMatchObject({ plan: 'pro', status: 'active', months: 1 });
+    const plan = await db.query<{ plan: string }>('select plan::text from public.workspaces where id = $1', [ws]);
+    expect(plan.rows[0]?.plan).toBe('pro');
+
+    // Replaying the same callback must not add another month.
+    await asServiceRole(db, (tx) => tx.query('select public.activate_prepaid_plan($1)', [first]));
+    // Paying again for the same plan extends from the current period end.
+    const second = await createPayment(ws, 'pro', 'month');
+    await asServiceRole(db, (tx) => tx.query('select public.activate_prepaid_plan($1)', [second]));
+    const period = await db.query<{ months: number; cancel_at_period_end: boolean }>(
+      `select round(extract(epoch from current_period_end - now()) / 86400 / 30)::int as months, cancel_at_period_end
+       from public.billing_subscriptions where workspace_id = $1`,
+      [ws],
+    );
+    expect(period.rows[0]).toMatchObject({ months: 2, cancel_at_period_end: true });
+
+    // Admins can read their payment history; agents can't, and nobody can write it directly.
+    expect(await asUser(db, owner, (tx) => count(tx, 'select 1 from public.billing_payments'))).toBe(2);
+    expect(await asUser(db, agent, (tx) => count(tx, 'select 1 from public.billing_payments'))).toBe(0);
+    await expect(
+      asUser(db, owner, (tx) => tx.query(`update public.billing_payments set status = 'paid' where workspace_id = $1`, [ws]).then((r) => r.affectedRows)),
+    ).resolves.toBe(0);
+    await expect(asUser(db, owner, (tx) => tx.query('select public.activate_prepaid_plan($1)', [first]))).rejects.toThrow(/permission denied/);
+
+    // Once the period runs out the workspace falls back to Free.
+    await db.query(`update public.billing_subscriptions set current_period_end = now() - interval '1 minute' where workspace_id = $1`, [ws]);
+    const expired = await asServiceRole(db, async (tx) => (await tx.query<{ ws: string }>('select ws from public.expire_prepaid_subscriptions() ws')).rows);
+    expect(expired.map((r) => r.ws)).toContain(ws);
+    const after = await db.query<{ plan: string }>('select plan::text from public.workspaces where id = $1', [ws]);
+    expect(after.rows[0]?.plan).toBe('free');
+  });
+
+  it('dedupes provider events and reconciles the messages_sent counter upwards', async () => {
+    await db.query(`insert into public.webhook_events (source, external_id, payload) values ('stripe', 'evt_dup', '{}')`);
+    await expect(db.query(`insert into public.webhook_events (source, external_id, payload) values ('stripe', 'evt_dup', '{}')`)).rejects.toThrow(/duplicate key/);
+    await db.query(`insert into public.webhook_events (source, payload) values ('meta', '{}'), ('meta', '{}')`);
+
+    const owner = await createAuthUser(db, `${unique('usage')}@test.dev`);
+    const ws = await createWorkspaceAs(owner, 'Usage Co');
+    const { phoneId } = await addPhone(ws);
+    const contact = await db.query<{ id: string }>(`insert into public.contacts (workspace_id, wa_id) values ($1, '923005550001') returning id`, [ws]);
+    const conversation = await db.query<{ id: string }>(
+      `insert into public.conversations (workspace_id, contact_id, phone_number_id) values ($1, $2, $3) returning id`,
+      [ws, contact.rows[0]!.id, phoneId],
+    );
+    for (const status of ['sent', 'delivered', 'read', 'failed']) {
+      await db.query(
+        `insert into public.messages (workspace_id, conversation_id, contact_id, direction, status, sender_type) values ($1, $2, $3, 'outbound', $4, 'agent')`,
+        [ws, conversation.rows[0]!.id, contact.rows[0]!.id, status],
+      );
+    }
+    await db.query(`select public.increment_usage($1, 'messages_sent', 1)`, [ws]);
+    await asServiceRole(db, (tx) => tx.query('select public.rollup_usage()'));
+    const counter = await db.query<{ value: string }>(
+      `select value from public.usage_counters where workspace_id = $1 and metric = 'messages_sent'`,
+      [ws],
+    );
+    expect(Number(counter.rows[0]?.value)).toBe(3);
+  });
+});
+
 describe('seed data', () => {
   it('fits the schema and powers the analytics functions', async () => {
     const owner = await createAuthUser(db, `${unique('seed-owner')}@test.dev`);

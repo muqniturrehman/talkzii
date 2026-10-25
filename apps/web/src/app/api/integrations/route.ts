@@ -1,11 +1,11 @@
-import { createIntegrationSchema } from '@talkzi/shared';
+import { createIntegrationSchema, isSignedProvider } from '@talkzi/shared';
 import type { Json } from '@talkzi/db';
 import { ApiError } from '@/lib/api/errors';
 import { createHandler, unwrap } from '@/lib/api/handler';
 import { audit } from '@/lib/audit';
 import { encryptSecret, randomToken } from '@/lib/crypto';
 import { appUrl } from '@/lib/env';
-import { INTEGRATION_COLUMNS, isStoreProvider, toIntegrationResponse } from '@/lib/public-api/integration-rows';
+import { INTEGRATION_COLUMNS, toIntegrationResponse } from '@/lib/public-api/integration-rows';
 
 export const GET = createHandler({ role: 'admin' }, async ({ supabase }) => {
   const rows = unwrap(await supabase.from('integrations').select(INTEGRATION_COLUMNS).order('created_at', { ascending: false }));
@@ -13,14 +13,15 @@ export const GET = createHandler({ role: 'admin' }, async ({ supabase }) => {
 });
 
 /**
- * Connects an integration. Zapier / n8n / custom get a Talkzi-generated token
- * (shown once); Shopify / WooCommerce use the store's webhook signing secret,
- * which can be pasted now or after the store webhook is created.
+ * Connects an integration. Zapier / n8n / Google Sheets / custom get a
+ * Talkzi-generated token (shown once); Shopify / WooCommerce / Stripe use the
+ * provider's webhook signing secret, which can be pasted now or after the
+ * webhook is created on their side.
  */
 export const POST = createHandler({ role: 'admin', feature: 'integrations', body: createIntegrationSchema }, async ({ supabase, body, workspace, user, req }) => {
-  const store = isStoreProvider(body.provider);
-  const token = store ? null : `tzin_${randomToken(24)}`;
-  const secret = store ? (body.signingSecret ?? null) : token;
+  const signed = isSignedProvider(body.provider);
+  const token = signed ? null : `tzin_${randomToken(24)}`;
+  const secret = signed ? (body.signingSecret ?? null) : token;
   const { data, error } = await supabase
     .from('integrations')
     .insert({

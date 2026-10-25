@@ -197,6 +197,22 @@ describe('sendMessage (mocked Cloud API)', () => {
     expect(failed[0]).toMatchObject({ id: 'msg-1', code: 131047 });
   });
 
+  it('enforces the monthly message allowance when the plan is known', async () => {
+    const atLimit = memoryStore();
+    atLimit.store.messagesSentThisMonth = vi.fn(async () => 1_000);
+    const { client, sendMessageFn } = fakeClient();
+    const deps = { store: atLimit.store, getClient: async () => ({ client, metaPhoneNumberId: 'PN1' }), now: () => NOW };
+    const input = parse({ conversationId: '2b1d3c4e-5f60-4a7b-8c9d-0e1f2a3b4c5d', type: 'text', text: 'hi' });
+
+    await expect(sendMessage(input, { ...ctx, plan: 'free' }, deps)).rejects.toMatchObject({ status: 403, code: 'PLAN_LIMIT' });
+    expect(sendMessageFn).not.toHaveBeenCalled();
+    expect(atLimit.recorded).toHaveLength(0);
+
+    // Pro allows 50,000 a month; without a plan in context nothing is enforced.
+    await expect(sendMessage(input, { ...ctx, plan: 'pro' }, deps)).resolves.toMatchObject({ status: 'sent' });
+    await expect(sendMessage(input, ctx, deps)).resolves.toMatchObject({ status: 'sent' });
+  });
+
   it('is idempotent on clientMessageId', async () => {
     const { store } = memoryStore({
       existing: { id: 'msg-9', conversation_id: 'conv-1', status: 'sent', wamid: 'wamid.ALREADY', duplicate: true, created_at: NOW.toISOString() },

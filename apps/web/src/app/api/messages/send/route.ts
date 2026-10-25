@@ -10,6 +10,6 @@ export const maxDuration = 30;
 export const POST = createHandler(
   { role: 'agent', body: sendMessageSchema, rateLimit: RATE_LIMITS.send },
   async ({ body, workspace, user, admin }) => {
-    return sendMessage(body, { workspaceId: workspace.id, senderId: user.id, senderType: 'agent' }, messagingDeps(admin()));
+    return sendMessage(body, { workspaceId: workspace.id, senderId: user.id, senderType: 'agent', plan: workspace.plan }, messagingDeps(admin()));
   },
 );
