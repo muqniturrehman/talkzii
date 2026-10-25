@@ -87,8 +87,9 @@ function parseWith<S extends AnySchema>(schema: S, input: unknown): z.output<S> 
   return result.data;
 }
 
-function normalizeParams(raw: Record<string, string | string[] | undefined>): Record<string, string> {
+function normalizeParams(raw: Record<string, string | string[] | undefined> | undefined | null): Record<string, string> {
   const out: Record<string, string> = {};
+  if (!raw) return out;
   for (const [key, value] of Object.entries(raw)) {
     if (typeof value === 'string') out[key] = value;
     else if (Array.isArray(value)) out[key] = value.join('/');
