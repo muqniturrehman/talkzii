@@ -33,6 +33,23 @@ export interface EngineActions {
   addLabel(labelId: string): Promise<void>;
   /** Knowledge-base answer to the customer's message, or null. */
   aiReply(question: string): Promise<string | null>;
+  /** Calls an external API (SSRF-guarded); never throws. */
+  httpRequest(request: FlowHttpRequest): Promise<FlowHttpResponse>;
+  /** Sends an approved template with body variables. */
+  sendTemplate(templateId: string, variables: string[]): Promise<void>;
+}
+
+export interface FlowHttpRequest {
+  method: 'GET' | 'POST';
+  url: string;
+  headers: Record<string, string>;
+  body?: string;
+}
+
+export interface FlowHttpResponse {
+  ok: boolean;
+  status: number | null;
+  body: string;
 }
 
 export const MAX_STEPS_PER_RUN = 25;
@@ -45,27 +62,49 @@ function parseData<T extends keyof typeof nodeDataSchemas>(type: T, node: FlowNo
   return parsed.success ? (parsed.data as Data<T>) : null;
 }
 
-/** {{vars.x}}, {{contact.name}}, {{contact.first_name}}, {{contact.phone}}, {{contact.custom.key}} */
-export function interpolate(text: string, vars: Record<string, string>, contact: EngineContact): string {
+/**
+ * {{vars.x}}, {{contact.name}}, {{contact.first_name}}, {{contact.phone}}, {{contact.custom.key}}.
+ * `escape` transforms substituted values (e.g. JSON-escaping inside a request body).
+ */
+export function interpolate(text: string, vars: Record<string, string>, contact: EngineContact, escape: (value: string) => string = (v) => v): string {
   const fullName = (contact.name ?? contact.profile_name ?? '').trim();
   const custom = (contact.custom_fields && typeof contact.custom_fields === 'object' ? contact.custom_fields : {}) as Record<string, unknown>;
   return text.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, path: string) => {
-    if (path.startsWith('vars.')) return vars[path.slice(5)] ?? '';
+    if (path.startsWith('vars.')) return escape(vars[path.slice(5)] ?? '');
     switch (path) {
       case 'contact.name':
-        return fullName || 'there';
+        return escape(fullName || 'there');
       case 'contact.first_name':
-        return fullName.split(/\s+/)[0] || 'there';
+        return escape(fullName.split(/\s+/)[0] || 'there');
       case 'contact.phone':
-        return `+${contact.wa_id}`;
+        return escape(`+${contact.wa_id}`);
       default:
         if (path.startsWith('contact.custom.')) {
           const value = custom[path.slice('contact.custom.'.length)];
-          return value === undefined || value === null ? '' : String(value);
+          return escape(value === undefined || value === null ? '' : String(value));
         }
         return match;
     }
   });
+}
+
+/** Escapes a value for use inside a JSON string literal. */
+export const jsonEscape = (value: string) => JSON.stringify(value).slice(1, -1);
+
+/** A response field by dot path ("order.items.0.name"), or the raw body. */
+export function pickResponseValue(body: string, path?: string): string {
+  if (!path) return body;
+  try {
+    let value: unknown = JSON.parse(body);
+    for (const part of path.split('.')) {
+      if (value === null || typeof value !== 'object') return '';
+      value = Array.isArray(value) ? value[Number(part)] : (value as Record<string, unknown>)[part];
+    }
+    if (value === undefined || value === null) return '';
+    return typeof value === 'object' ? JSON.stringify(value) : String(value);
+  } catch {
+    return '';
+  }
 }
 
 function resolveValue(path: string, vars: Record<string, string>, contact: EngineContact): string {
@@ -250,6 +289,27 @@ export async function runFlow(
         const data = parseData('ai_reply', node);
         const answer = text ? await actions.aiReply(text) : null;
         await actions.sendText(answer ?? data?.fallback ?? 'Let me connect you with our team.');
+        state.currentNodeId = nextOf(node.id);
+        break;
+      }
+      case 'http_request': {
+        const data = parseData('http_request', node);
+        if (!data) return { ...state, status: 'failed' };
+        const response = await actions.httpRequest({
+          method: data.method,
+          url: interpolate(data.url, vars, contact, encodeURIComponent),
+          headers: Object.fromEntries(data.headers.map((h) => [h.key, interpolate(h.value, vars, contact)])),
+          ...(data.method === 'POST' && data.body ? { body: interpolate(data.body, vars, contact, jsonEscape) } : {}),
+        });
+        vars.http_status = String(response.status ?? 0);
+        if (data.saveAs) vars[data.saveAs] = pickResponseValue(response.body, data.responsePath).slice(0, 1000);
+        state.currentNodeId = response.ok ? nextOf(node.id, 'success') : (nextOf(node.id, 'error') ?? nextOf(node.id, 'success'));
+        break;
+      }
+      case 'send_template': {
+        const data = parseData('send_template', node);
+        if (!data) return { ...state, status: 'failed' };
+        await actions.sendTemplate(data.templateId, data.variables.map((v) => interpolate(v, vars, contact)));
         state.currentNodeId = nextOf(node.id);
         break;
       }

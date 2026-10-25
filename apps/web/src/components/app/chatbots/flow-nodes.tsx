@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { Bot, Flag, GitBranch, HelpCircle, MessageSquare, MousePointerClick, Play, Sparkles, Tag, UserRound, Variable } from 'lucide-react';
+import { Bot, FileText, Flag, GitBranch, Globe, HelpCircle, MessageSquare, MousePointerClick, Play, Sparkles, Tag, UserRound, Variable } from 'lucide-react';
 import type { ChatbotNodeType } from '@talkzi/shared';
 import { cn } from '@talkzi/ui/lib/utils';
 
@@ -19,6 +19,8 @@ export const NODE_META: Record<ChatbotNodeType, { label: string; description: st
   label: { label: 'Add label', description: 'Tag the contact', icon: Tag, accent: 'text-muted-foreground' },
   assign: { label: 'Hand off to team', description: 'Assign and pause the bot', icon: UserRound, accent: 'text-danger' },
   ai_reply: { label: 'AI answer', description: 'Answer from your knowledge base', icon: Sparkles, accent: 'text-primary' },
+  http_request: { label: 'HTTP request', description: 'Call your API and save the response', icon: Globe, accent: 'text-info' },
+  send_template: { label: 'Send template', description: 'Send an approved template (works after 24h)', icon: FileText, accent: 'text-primary' },
   end: { label: 'End', description: 'Finish the conversation', icon: Flag, accent: 'text-muted-foreground' },
 };
 
@@ -44,6 +46,10 @@ function summary(type: ChatbotNodeType, data: FlowNodeData): string {
       return str(data.text) || 'Conversation complete';
     case 'label':
       return data.labelId ? 'Adds a label' : 'Choose a label';
+    case 'http_request':
+      return `${str(data.method) || 'POST'} ${str(data.url)}${data.saveAs ? ` → {{vars.${str(data.saveAs)}}}` : ''}`;
+    case 'send_template':
+      return str(data.templateName) || 'Choose an approved template';
     default:
       return 'Triggered by your keywords';
   }
@@ -91,7 +97,16 @@ export function FlowNodeCard({ data, type, selected }: NodeProps<BuilderNode>) {
         </div>
       ) : null}
 
-      {!['buttons', 'condition', 'assign', 'end'].includes(nodeType) ? <Handle type="source" position={Position.Bottom} className={handleClass} /> : null}
+      {nodeType === 'http_request' ? (
+        <div className="flex justify-between px-3 pb-2 text-[10px] font-medium">
+          <span className="text-success">Success</span>
+          <span className="text-danger">Error</span>
+          <Handle id="success" type="source" position={Position.Bottom} style={{ left: '25%' }} className="!size-3 !border-2 !border-background !bg-success" />
+          <Handle id="error" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!size-3 !border-2 !border-background !bg-danger" />
+        </div>
+      ) : null}
+
+      {!['buttons', 'condition', 'http_request', 'assign', 'end'].includes(nodeType) ? <Handle type="source" position={Position.Bottom} className={handleClass} /> : null}
       {nodeType === 'assign' ? (
         <p className="flex items-center gap-1 px-3 pb-2 text-[10px] text-muted-foreground">
           <Bot className="size-3" /> Bot pauses here
@@ -120,6 +135,10 @@ export function defaultNodeData(type: ChatbotNodeType): FlowNodeData {
       return { assignTo: 'unassigned', note: '' };
     case 'ai_reply':
       return { fallback: 'Let me connect you with our team.' };
+    case 'http_request':
+      return { method: 'POST', url: 'https://', headers: [], body: '{"phone": "{{contact.phone}}"}', saveAs: 'api_result' };
+    case 'send_template':
+      return { variables: [] };
     default:
       return {};
   }

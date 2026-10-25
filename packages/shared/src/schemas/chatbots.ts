@@ -11,6 +11,8 @@ export const CHATBOT_NODE_TYPES = [
   'label',
   'assign',
   'ai_reply',
+  'http_request',
+  'send_template',
   'end',
 ] as const;
 export type ChatbotNodeType = (typeof CHATBOT_NODE_TYPES)[number];
@@ -19,6 +21,7 @@ export const CONDITION_OPERATORS = ['equals', 'not_equals', 'contains', 'starts_
 export type ConditionOperator = (typeof CONDITION_OPERATORS)[number];
 
 const optionSchema = z.object({ id: z.string().trim().min(1).max(64), title: z.string().trim().min(1).max(24) });
+const variableName = z.string().trim().regex(/^[a-z][a-z0-9_]{0,39}$/, 'lowercase letters, numbers and _');
 
 export const nodeDataSchemas = {
   start: z.object({ label: z.string().optional() }).passthrough(),
@@ -46,6 +49,27 @@ export const nodeDataSchemas = {
   label: z.object({ labelId: z.uuid() }),
   assign: z.object({ assignTo: z.union([z.literal('unassigned'), z.uuid()]).default('unassigned'), note: z.string().max(500).optional() }),
   ai_reply: z.object({ fallback: z.string().max(1000).default('Let me connect you with our team.') }),
+  /** Calls your API; {{variables}} work in the URL, headers and JSON body. */
+  http_request: z.object({
+    method: z.enum(['GET', 'POST']).default('POST'),
+    url: z.string().trim().max(2000).regex(/^https?:\/\/\S+$/, 'Enter a full URL starting with https://'),
+    headers: z
+      .array(z.object({ key: z.string().trim().regex(/^[A-Za-z0-9-]{1,64}$/, 'Header names use letters, numbers and -'), value: z.string().max(1000) }))
+      .max(10)
+      .default([]),
+    body: z.string().max(5000).optional(),
+    /** Save the response (or one field of it) as {{vars.<saveAs>}}. */
+    saveAs: variableName.optional(),
+    /** Dot path into a JSON response, e.g. "order.status". */
+    responsePath: z.string().trim().max(120).optional(),
+  }),
+  /** Sends an approved template; works outside the 24-hour window. */
+  send_template: z.object({
+    templateId: z.uuid('Choose an approved template'),
+    templateName: z.string().max(512).optional(),
+    /** Body variables {{1}}, {{2}}…, each may use {{contact.*}} / {{vars.*}}. */
+    variables: z.array(z.string().max(1024)).max(20).default([]),
+  }),
   end: z.object({ text: z.string().max(1024).optional() }).passthrough(),
 } satisfies Record<ChatbotNodeType, z.ZodType>;
 
@@ -132,6 +156,10 @@ export function validateFlowGraph(graph: FlowGraph): string[] {
     if (node.type === 'condition') {
       const handles = new Set(outgoing(node.id).map((e) => e.sourceHandle));
       if (!handles.has('true') || !handles.has('false')) errors.push(`Condition “${node.id}” needs both a Yes and a No path.`);
+    }
+    if (node.type === 'http_request') {
+      const handles = new Set(outgoing(node.id).map((e) => e.sourceHandle));
+      if (!handles.has('success')) errors.push(`HTTP request “${node.id}” needs a Success path.`);
     }
     if (node.type === 'buttons') {
       const data = parsed.data as z.infer<(typeof nodeDataSchemas)['buttons']>;

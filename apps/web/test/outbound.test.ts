@@ -114,3 +114,27 @@ describe('public API helpers', () => {
     expect(verifyBase64Hmac(raw, null, 'shpss_secret')).toBe(false);
   });
 });
+
+describe('chatbot HTTP step', () => {
+  it('blocks private targets, strips unsafe headers and never throws', async () => {
+    const { performFlowRequest } = await import('@/lib/chatbots/http');
+    const fetchImpl = vi.fn(async () => new Response('{"ok":true}', { status: 201 }));
+    const blocked = await performFlowRequest({ method: 'GET', url: 'https://169.254.169.254/latest', headers: {} }, fetchImpl as typeof fetch);
+    expect(blocked.ok).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    const ok = await performFlowRequest({ method: 'POST', url: 'https://8.8.8.8/hook', headers: { Host: 'evil', 'X-Key': 'k' }, body: '{}' }, fetchImpl as typeof fetch);
+    expect(ok).toEqual({ ok: true, status: 201, body: '{"ok":true}' });
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers.host).toBeUndefined();
+    expect(headers['x-key']).toBe('k');
+    expect(headers['content-type']).toBe('application/json');
+    expect(init.redirect).toBe('manual');
+
+    const failing = await performFlowRequest({ method: 'GET', url: 'https://8.8.8.8/x', headers: {} }, (async () => {
+      throw new Error('ETIMEDOUT');
+    }) as typeof fetch);
+    expect(failing).toEqual({ ok: false, status: null, body: 'ETIMEDOUT' });
+  });
+});

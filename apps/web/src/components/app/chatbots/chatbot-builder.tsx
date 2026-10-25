@@ -49,7 +49,7 @@ export interface BuilderFlow {
 
 const newNodeId = (type: ChatbotNodeType) => `${type}-${Math.random().toString(36).slice(2, 8)}`;
 
-const PALETTE: ChatbotNodeType[] = ['message', 'ask', 'buttons', 'condition', 'ai_reply', 'set_variable', 'label', 'assign', 'end'];
+const PALETTE: ChatbotNodeType[] = ['message', 'ask', 'buttons', 'condition', 'ai_reply', 'http_request', 'send_template', 'set_variable', 'label', 'assign', 'end'];
 
 type ChatLine = { from: 'customer'; text: string } | { from: 'bot'; message: SimulatedMessage };
 
@@ -91,6 +91,19 @@ function Simulator({ flowId, graph }: { flowId: string; graph: FlowGraph }) {
             <p key={i} className="text-center text-xs text-warning">Handed off to the team{line.message.note ? ` — ${line.message.note}` : ''}</p>
           ) : line.message.kind === 'label' ? (
             <p key={i} className="text-center text-xs text-muted-foreground">Label added to the contact</p>
+          ) : line.message.kind === 'http' ? (
+            <p key={i} className={cn('text-center text-xs break-all', line.message.ok ? 'text-muted-foreground' : 'text-danger')}>
+              {line.message.method} {line.message.url} → {line.message.status ?? 'failed'}
+            </p>
+          ) : line.message.kind === 'template' ? (
+            <div key={i} className="flex justify-start">
+              <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-bubble-in px-3 py-2 text-sm shadow-sm">
+                <p className="mb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Template · {line.message.name}</p>
+                <p className="whitespace-pre-wrap">
+                  <WhatsAppText text={line.message.text} />
+                </p>
+              </div>
+            </div>
           ) : (
             <div key={i} className="flex justify-start">
               <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-bubble-in px-3 py-2 text-sm shadow-sm">

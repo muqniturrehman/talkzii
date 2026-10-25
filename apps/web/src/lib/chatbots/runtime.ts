@@ -10,6 +10,7 @@ import { messagingDeps } from '@/lib/messaging/supabase-store';
 import type { TypedSupabaseClient } from '@/lib/supabase/types';
 import type { InboundContext } from '@/lib/webhooks/meta/types';
 import { matchesTrigger, runFlow, type EngineActions, type EngineContact, type InboundInput, type SessionState } from './engine';
+import { performFlowRequest } from './http';
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
@@ -85,6 +86,14 @@ export function liveActions(admin: TypedSupabaseClient, ctx: { workspace: Worksp
         .upsert({ contact_id: ctx.contactId, label_id: labelId, workspace_id: ctx.workspace.id }, { ignoreDuplicates: true });
     },
     aiReply: () => groundedAnswer(admin, ctx.workspace, ctx.conversationId, log),
+    async httpRequest(request) {
+      const response = await performFlowRequest(request);
+      if (!response.ok) log.warn({ status: response.status, conversationId: ctx.conversationId }, 'Chatbot HTTP request failed');
+      return response;
+    },
+    async sendTemplate(templateId, variables) {
+      await send({ type: 'template', conversationId: ctx.conversationId, templateId, variables: { body: variables } });
+    },
   };
 }
 
@@ -93,7 +102,9 @@ export type SimulatedMessage =
   | { kind: 'buttons'; text: string; buttons: { id: string; title: string }[] }
   | { kind: 'list'; text: string; buttonText: string; rows: { id: string; title: string }[] }
   | { kind: 'handoff'; note: string | null }
-  | { kind: 'label'; labelId: string };
+  | { kind: 'label'; labelId: string }
+  | { kind: 'http'; method: string; url: string; status: number | null; ok: boolean }
+  | { kind: 'template'; name: string; text: string };
 
 /** Collects what the bot would do, without contacting WhatsApp (builder test panel). */
 export function simulatorActions(): EngineActions & { messages: SimulatedMessage[] } {
@@ -117,6 +128,14 @@ export function simulatorActions(): EngineActions & { messages: SimulatedMessage
     },
     async aiReply() {
       return null;
+    },
+    async httpRequest(request) {
+      const response = await performFlowRequest(request);
+      messages.push({ kind: 'http', method: request.method, url: request.url, status: response.status, ok: response.ok });
+      return response;
+    },
+    async sendTemplate(templateId, variables) {
+      messages.push({ kind: 'template', name: templateId, text: variables.length ? `Variables: ${variables.join(' · ')}` : '' });
     },
   };
 }

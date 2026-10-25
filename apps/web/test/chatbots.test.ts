@@ -140,3 +140,76 @@ describe('chatbot helpers', () => {
     ]);
   });
 });
+
+describe('HTTP request and template steps', () => {
+  const node = (id: string, type: FlowGraph['nodes'][number]['type'], data: Record<string, unknown> = {}) => ({ id, type, position: { x: 0, y: 0 }, data });
+  const graph = (withError: boolean): FlowGraph => ({
+    nodes: [
+      node('s', 'start'),
+      node('api', 'http_request', {
+        method: 'POST',
+        url: 'https://api.shop.test/orders/{{vars.order}}',
+        headers: [{ key: 'X-Shop', value: '{{contact.custom.city}}' }],
+        body: '{"name": "{{contact.name}}", "note": "{{vars.note}}"}',
+        saveAs: 'status',
+        responsePath: 'order.status',
+      }),
+      node('ok', 'send_template', { templateId: '6f1c3c1e-8a3b-4b8e-9c55-1d2f3a4b5c6d', variables: ['{{contact.first_name}}', '{{vars.status}}'] }),
+      node('fail', 'message', { text: 'Lookup failed ({{vars.http_status}})' }),
+    ],
+    edges: [
+      { id: 'e1', source: 's', target: 'api' },
+      { id: 'e2', source: 'api', target: 'ok', sourceHandle: 'success' },
+      ...(withError ? [{ id: 'e3', source: 'api', target: 'fail', sourceHandle: 'error' }] : []),
+    ],
+  });
+  const state = (vars: Record<string, string>): SessionState => ({ currentNodeId: 's', variables: vars, status: 'active', stepCount: 0 });
+
+  it('interpolates safely, saves a JSON field and sends the template on success', async () => {
+    const actions = simulatorActions();
+    const requests: unknown[] = [];
+    const templates: unknown[] = [];
+    actions.httpRequest = async (request) => {
+      requests.push(request);
+      return { ok: true, status: 200, body: JSON.stringify({ order: { status: 'Shipped' } }) };
+    };
+    actions.sendTemplate = async (templateId, variables) => {
+      templates.push({ templateId, variables });
+    };
+    const next = await runFlow(graph(true), state({ order: 'A/1 7', note: 'He said "hi"' }), { text: '' }, contact, actions);
+    expect(requests[0]).toEqual({
+      method: 'POST',
+      url: 'https://api.shop.test/orders/A%2F1%207',
+      headers: { 'X-Shop': 'Lahore' },
+      body: '{"name": "Ayesha Khan", "note": "He said \\"hi\\""}',
+    });
+    expect(JSON.parse((requests[0] as { body: string }).body)).toEqual({ name: 'Ayesha Khan', note: 'He said "hi"' });
+    expect(next.variables).toMatchObject({ status: 'Shipped', http_status: '200' });
+    expect(templates).toEqual([{ templateId: '6f1c3c1e-8a3b-4b8e-9c55-1d2f3a4b5c6d', variables: ['Ayesha', 'Shipped'] }]);
+  });
+
+  it('takes the Error path on failures, or the Success path when Error is not connected', async () => {
+    const failing = simulatorActions();
+    failing.httpRequest = async () => ({ ok: false, status: 503, body: 'down' });
+    const withError = await runFlow(graph(true), state({}), { text: '' }, contact, failing);
+    expect(failing.messages).toContainEqual({ kind: 'text', text: 'Lookup failed (503)' });
+    expect(withError.status).toBe('completed');
+
+    const fallback = simulatorActions();
+    fallback.httpRequest = async () => ({ ok: false, status: null, body: '' });
+    const sent: string[] = [];
+    fallback.sendTemplate = async (id) => {
+      sent.push(id);
+    };
+    await runFlow(graph(false), state({}), { text: '' }, contact, fallback);
+    expect(sent).toHaveLength(1);
+  });
+
+  it('requires a Success path and valid settings before activation', () => {
+    const errors = validateFlowGraph({ ...graph(true), edges: graph(true).edges.filter((e) => e.sourceHandle !== 'success') });
+    expect(errors.some((e) => e.includes('needs a Success path'))).toBe(true);
+    const badUrl = graph(true);
+    badUrl.nodes[1] = node('api', 'http_request', { method: 'GET', url: 'ftp://nope' });
+    expect(validateFlowGraph(badUrl).some((e) => e.includes('https://'))).toBe(true);
+  });
+});

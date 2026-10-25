@@ -35,7 +35,7 @@ export default async function ConnectPage() {
           <AlertTitle>Meta app not configured</AlertTitle>
           <AlertDescription>
             Set <code>NEXT_PUBLIC_META_APP_ID</code>, <code>NEXT_PUBLIC_META_CONFIG_ID</code>, <code>META_APP_ID</code> and{' '}
-            <code>META_APP_SECRET</code> in your environment. See SETUP.md → “Meta Developer app”.
+            <code>META_APP_SECRET</code> in your environment. See SETUP.md → “Create the Meta developer app”.
           </AlertDescription>
         </Alert>
       ) : null}

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Plus, Trash2, X } from 'lucide-react';
 import { CONDITION_OPERATORS, type ChatbotNodeType, type ChatbotTrigger } from '@talkzi/shared';
 import { Button } from '@talkzi/ui/button';
@@ -8,13 +9,123 @@ import { Input } from '@talkzi/ui/input';
 import { Label } from '@talkzi/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@talkzi/ui/select';
 import { Textarea } from '@talkzi/ui/textarea';
+import { summarizeTemplate } from '@talkzi/whatsapp/templates';
 import { useLabels, useMembers } from '@/components/app/inbox/use-inbox';
+import { apiFetch } from '@/lib/api/client';
 import { NODE_META, type FlowNodeData } from './flow-nodes';
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 const slug = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || `opt_${Math.random().toString(36).slice(2, 6)}`;
 
 const VARIABLE_HINT = 'Use {{contact.first_name}}, {{contact.phone}}, {{contact.custom.city}} or {{vars.name}}.';
+
+interface ApprovedTemplate {
+  id: string;
+  name: string;
+  language: string;
+  components: unknown;
+}
+
+/** Flow template steps fill body variables only, so templates needing header media/text or URL suffixes are left out. */
+function bodyOnly(template: ApprovedTemplate): number | null {
+  const summary = summarizeTemplate(template.components);
+  if (summary.header.format !== 'NONE' && summary.header.format !== 'TEXT') return null;
+  if (summary.header.variables.length > 0 || summary.dynamicUrlButtons.length > 0) return null;
+  return summary.body.variables.length;
+}
+
+function TemplateStep({ data, set }: { data: FlowNodeData; set: (patch: FlowNodeData) => void }) {
+  const templates = useQuery({ queryKey: ['templates', 'approved'], queryFn: () => apiFetch<ApprovedTemplate[]>('/api/templates?status=APPROVED') });
+  const usable = (templates.data ?? []).flatMap((t) => {
+    const count = bodyOnly(t);
+    return count === null ? [] : [{ ...t, count }];
+  });
+  const variables = Array.isArray(data.variables) ? (data.variables as string[]) : [];
+  return (
+    <>
+      <Field id="n-template" label="Approved template" hint="Templates can be sent even after the 24-hour window has closed.">
+        <Select
+          value={str(data.templateId)}
+          onValueChange={(templateId) => {
+            const template = usable.find((t) => t.id === templateId);
+            set({ templateId, templateName: template ? `${template.name} · ${template.language}` : undefined, variables: Array.from({ length: template?.count ?? 0 }, (_, i) => variables[i] ?? '') });
+          }}
+        >
+          <SelectTrigger id="n-template">
+            <SelectValue placeholder={templates.isLoading ? 'Loading…' : usable.length ? 'Choose a template' : 'No approved templates yet'} />
+          </SelectTrigger>
+          <SelectContent>
+            {usable.map((t) => (
+              <SelectItem key={t.id} value={t.id}>
+                {t.name} · {t.language}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      {variables.map((value, i) => (
+        <Field key={i} id={`n-tvar-${i}`} label={`{{${i + 1}}}`} hint={i === 0 ? VARIABLE_HINT : undefined}>
+          <Input id={`n-tvar-${i}`} value={value} onChange={(e) => set({ variables: variables.map((v, j) => (j === i ? e.target.value : v)) })} />
+        </Field>
+      ))}
+    </>
+  );
+}
+
+function HttpStep({ data, set }: { data: FlowNodeData; set: (patch: FlowNodeData) => void }) {
+  const headers = Array.isArray(data.headers) ? (data.headers as { key: string; value: string }[]) : [];
+  const method = str(data.method) || 'POST';
+  return (
+    <>
+      <div className="grid grid-cols-[96px_1fr] gap-2">
+        <Field id="n-method" label="Method">
+          <Select value={method} onValueChange={(m) => set({ method: m })}>
+            <SelectTrigger id="n-method">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="GET">GET</SelectItem>
+              <SelectItem value="POST">POST</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field id="n-url" label="URL">
+          <Input id="n-url" value={str(data.url)} onChange={(e) => set({ url: e.target.value.trim() })} placeholder="https://api.yourshop.com/orders/{{vars.order_id}}" />
+        </Field>
+      </div>
+      <p className="text-[11px] text-muted-foreground">Public https URLs only. Values inserted into the URL are URL-encoded; the request times out after 8 seconds.</p>
+      <div className="space-y-2">
+        <Label>Headers</Label>
+        {headers.map((h, i) => (
+          <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+            <Input aria-label={`Header ${i + 1} name`} value={h.key} placeholder="Authorization" onChange={(e) => set({ headers: headers.map((x, j) => (j === i ? { ...x, key: e.target.value.replace(/[^A-Za-z0-9-]/g, '') } : x)) })} />
+            <Input aria-label={`Header ${i + 1} value`} value={h.value} placeholder="Bearer …" onChange={(e) => set({ headers: headers.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)) })} />
+            <Button type="button" size="icon" variant="ghost" aria-label="Remove header" onClick={() => set({ headers: headers.filter((_, j) => j !== i) })}>
+              <X />
+            </Button>
+          </div>
+        ))}
+        <Button type="button" size="sm" variant="outline" disabled={headers.length >= 10} onClick={() => set({ headers: [...headers, { key: '', value: '' }] })}>
+          <Plus /> Add header
+        </Button>
+      </div>
+      {method === 'POST' ? (
+        <Field id="n-body" label="JSON body" hint="Values are JSON-escaped, e.g. {&quot;phone&quot;: &quot;{{contact.phone}}&quot;}.">
+          <Textarea id="n-body" rows={5} className="font-mono text-xs" value={str(data.body)} onChange={(e) => set({ body: e.target.value || undefined })} />
+        </Field>
+      ) : null}
+      <div className="grid grid-cols-2 gap-2">
+        <Field id="n-save" label="Save response as" hint="Then use {{vars.<name>}}.">
+          <Input id="n-save" value={str(data.saveAs)} onChange={(e) => set({ saveAs: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') || undefined })} />
+        </Field>
+        <Field id="n-path" label="JSON field (optional)" hint="e.g. order.status">
+          <Input id="n-path" value={str(data.responsePath)} onChange={(e) => set({ responsePath: e.target.value || undefined })} />
+        </Field>
+      </div>
+      <p className="text-[11px] text-muted-foreground">2xx responses follow Success; anything else (or a timeout) follows Error, or Success if Error isn’t connected. The status code is saved as {'{{vars.http_status}}'}.</p>
+    </>
+  );
+}
 
 function Field({ id, label, children, hint }: { id: string; label: string; children: React.ReactNode; hint?: string }) {
   return (
@@ -275,6 +386,10 @@ export function NodeInspector({
           <Textarea id="n-fallback" rows={3} value={str(data.fallback)} onChange={(e) => set({ fallback: e.target.value })} />
         </Field>
       ) : null}
+
+      {type === 'http_request' ? <HttpStep data={data} set={set} /> : null}
+
+      {type === 'send_template' ? <TemplateStep data={data} set={set} /> : null}
 
       {type === 'end' ? (
         <Field id="n-end" label="Closing message (optional)" hint={VARIABLE_HINT}>

@@ -1,4 +1,5 @@
 import { executeChatbotSchema, flowGraphSchema, planHasFeature, resolveAiSettings } from '@talkzi/shared';
+import { buildTemplateSendComponents, renderTemplatePreview, summarizeTemplate } from '@talkzi/whatsapp/templates';
 import { ApiError } from '@/lib/api/errors';
 import { createHandler, requireUuid } from '@/lib/api/handler';
 import { getAiTasks } from '@/lib/ai';
@@ -40,6 +41,15 @@ export const POST = createHandler(
       });
       if (tasks.provider !== 'heuristic') await recordAiCredit(db, workspace.id);
       return result.grounded ? result.answer : null;
+    };
+
+    // Show the rendered template (and catch missing variables) instead of the raw id.
+    actions.sendTemplate = async (templateId, variables) => {
+      const { data: template } = await supabase.from('message_templates').select('name, status, components').eq('id', templateId).maybeSingle();
+      if (!template) throw ApiError.badRequest('The template in this flow no longer exists.');
+      const summary = summarizeTemplate(template.components);
+      buildTemplateSendComponents(summary, { body: variables });
+      actions.messages.push({ kind: 'template', name: `${template.name}${template.status === 'APPROVED' ? '' : ` (${template.status.toLowerCase()})`}`, text: renderTemplatePreview(summary, { body: variables }) });
     };
 
     const contact = { name: 'Test Customer', profile_name: null, wa_id: '923001234567', custom_fields: { city: 'Lahore' } };

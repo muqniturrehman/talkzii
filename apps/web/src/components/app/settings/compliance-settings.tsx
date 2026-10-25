@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AlertTriangle, Download, ShieldCheck, X } from 'lucide-react';
 import { complianceSettingsSchema, matchOptKeyword, RETENTION_OPTIONS, type ComplianceSettings } from '@talkzi/shared';
 import { Alert, AlertDescription } from '@talkzi/ui/alert';
@@ -60,9 +61,16 @@ function KeywordList({ id, label, values, onChange }: { id: string; label: strin
 }
 
 function DeleteWorkspace({ name }: { name: string }) {
+  const router = useRouter();
   const [confirm, setConfirm] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [code, setCode] = React.useState<string | null>(null);
+
+  // The active workspace is gone: the dashboard layout picks another membership or onboarding.
+  const leave = () => {
+    router.push('/app');
+    router.refresh();
+  };
 
   const remove = async () => {
     setBusy(true);
@@ -77,7 +85,7 @@ function DeleteWorkspace({ name }: { name: string }) {
   };
 
   return (
-    <Dialog onOpenChange={(open) => (!open && code ? window.location.assign('/app') : undefined)}>
+    <Dialog onOpenChange={(open) => (!open && code ? leave() : undefined)}>
       <DialogTrigger asChild>
         <Button variant="outline" className="border-danger/50 text-danger hover:bg-danger/10">
           Delete workspace
@@ -94,7 +102,7 @@ function DeleteWorkspace({ name }: { name: string }) {
             </DialogHeader>
             <p className="rounded-xl bg-muted p-3 text-center font-mono text-lg">{code}</p>
             <DialogFooter>
-              <Button onClick={() => window.location.assign('/app')}>Continue</Button>
+              <Button onClick={leave}>Continue</Button>
             </DialogFooter>
           </>
         ) : (
